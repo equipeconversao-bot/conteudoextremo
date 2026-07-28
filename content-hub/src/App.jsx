@@ -11,6 +11,7 @@ import { AnalyticsPage } from './pages/Analytics/AnalyticsPage'
 import { SettingsPage } from './pages/Settings/SettingsPage'
 import { TeamPage } from './pages/Team/TeamPage'
 import { ProducaoPage } from './pages/Producao/ProducaoPage'
+import { MineracaoPage } from './pages/Mineracao/MineracaoPage'
 import { ToastContainer } from './components/ui/Toast'
 import { Tabs } from './components/ui/Tabs'
 import { ImportSheetModal } from './components/ImportSheetModal'
@@ -79,6 +80,7 @@ export default function App() {
       <AppShell activePage={activePage} onNavigate={setActivePage}>
         {isOrgPage && <OrganizationPage activeSubTab={activePage} onNavigate={setActivePage} />}
         {activePage === 'producao' && <ProducaoPage onNavigate={setActivePage} />}
+        {activePage === 'mineracao' && <MineracaoPage />}
         {activePage === 'calendario' && <CalendarPage />}
         {activePage === 'dashboard' && <DashboardPage />}
         {activePage === 'analytics' && <AnalyticsPage />}

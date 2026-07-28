@@ -12,6 +12,7 @@ import { aiRouter } from './routes/ai.js'
 import { claudeRouter } from './routes/claude.js'
 import { instagramRouter } from './routes/instagram.js'
 import { youtubeRouter } from './routes/youtube.js'
+import { mineracaoRouter } from './routes/mineracao.js'
 
 const app = express()
 const PORT = process.env.PORT || 3001
@@ -23,6 +24,7 @@ app.use('/api/ai', aiRouter)
 app.use('/api/claude', claudeRouter)
 app.use('/api/instagram', instagramRouter)
 app.use('/api/youtube', youtubeRouter)
+app.use('/api/mineracao', mineracaoRouter)
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })

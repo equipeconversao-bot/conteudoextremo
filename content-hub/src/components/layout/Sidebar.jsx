@@ -3,7 +3,7 @@ import { ThemeToggle } from '../ui/ThemeToggle'
 import { Logo } from '../ui/Logo'
 import {
   LayoutGrid, Calendar, Video, Film, Scissors, MessageSquareQuote,
-  BarChart3, ChevronRight, Settings, TrendingUp, Users, Bot, PenBox
+  BarChart3, ChevronRight, Settings, TrendingUp, Users, Bot, PenBox, Pickaxe
 } from 'lucide-react'
 
 const navSections = [
@@ -22,6 +22,7 @@ const navSections = [
     icon: PenBox,
     items: [
       { key: 'producao', label: 'Claude AI', icon: Bot },
+      { key: 'mineracao', label: 'Mineração', icon: Pickaxe },
     ],
   },
   {

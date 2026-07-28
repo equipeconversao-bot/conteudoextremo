@@ -137,4 +137,17 @@ export const api = {
       return { error: 'Servidor offline' }
     }
   },
+
+  async mineracaoAnalisar(transcricao) {
+    try {
+      const res = await fetch(`${API_URL}/mineracao/analisar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transcricao }),
+      })
+      return res.json()
+    } catch (e) {
+      return { error: 'Não foi possível conectar ao servidor backend' }
+    }
+  },
 }
