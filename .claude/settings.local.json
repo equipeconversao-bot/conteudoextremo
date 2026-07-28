@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm -v)",
+      "Bash(echo \"exit: $?\")",
+      "PowerShell(python --version 2>&1)",
+      "PowerShell(winget search OpenJS.NodeJS.LTS --accept-source-agreements 2>&1)",
+      "PowerShell($ErrorActionPreference='SilentlyContinue')",
+      "Bash(git --version)",
+      "Bash(grep -E \"\\\\.git$\")",
+      "Bash(git commit -q -m 'Design System Conversão Extrema \\(React + Tailwind\\) *)",
+      "Bash(git branch *)",
+      "Bash(git remote *)",
+      "Bash(git fetch *)",
+      "Bash(git ls-tree *)"
+    ]
+  }
+}

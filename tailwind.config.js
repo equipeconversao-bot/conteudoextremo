@@ -1,0 +1,189 @@
+/**
+ * ─────────────────────────────────────────────────────────────────────────
+ * CONVERSÃO EXTREMA — DESIGN TOKENS (single source of truth)
+ * Fundação do design system: cor, tipografia, espaçamento, raio, elevação,
+ * motion e layout. Nomes semânticos + escalas numéricas completas.
+ * ─────────────────────────────────────────────────────────────────────────
+ */
+
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: ['./index.html', './src/**/*.{js,jsx}'],
+  darkMode: 'class',
+  theme: {
+    // ── Breakpoints ────────────────────────────────────────────────────────
+    screens: {
+      sm: '640px',
+      md: '768px',
+      lg: '1024px',
+      xl: '1280px',
+      '2xl': '1440px',
+    },
+    extend: {
+      // ── Cor ───────────────────────────────────────────────────────────────
+      colors: {
+        // Escala neutra proprietária (levemente quente — pareia com Geist)
+        neutral: {
+          0: '#ffffff',
+          50: '#fafafa',
+          100: '#f5f5f5',
+          150: '#ececec',
+          200: '#e6e6e6',
+          300: '#d4d4d4',
+          400: '#a1a1a1',
+          500: '#737373',
+          600: '#525252',
+          700: '#404040',
+          800: '#262626',
+          900: '#171717',
+          950: '#0a0a0a',
+        },
+        // Acento — Esmeralda (escala completa 50→950)
+        emerald: {
+          50: '#ecfdf5',
+          100: '#d1fae5',
+          200: '#a7f3d0',
+          300: '#6ee7b7',
+          400: '#34d399',
+          500: '#10b981',
+          600: '#059669',
+          700: '#047857',
+          800: '#065f46',
+          900: '#064e3b',
+          950: '#022c22',
+          // aliases semânticos
+          light: '#34d399',
+          DEFAULT: '#10b981',
+          deep: '#059669',
+          soft: '#d1fae5',
+        },
+        // Feedback
+        success: '#10b981',
+        warning: '#f5a623',
+        danger: '#ef4444',
+        info: '#3b82f6',
+        // ── Tokens semânticos TEMÁVEIS (viram claro/escuro via CSS variables) ──
+        // Definidos em src/index.css (:root e .dark). rgb(var / <alpha>) permite
+        // usar modificadores de opacidade (ex.: bg-ink/60) normalmente.
+        ink: 'rgb(var(--c-ink) / <alpha-value>)', //      texto/títulos
+        body: 'rgb(var(--c-body) / <alpha-value>)', //    texto de corpo
+        mute: 'rgb(var(--c-mute) / <alpha-value>)', //    texto secundário
+        faint: 'rgb(var(--c-faint) / <alpha-value>)', //  placeholder/disabled
+        hairline: {
+          DEFAULT: 'rgb(var(--c-hairline) / <alpha-value>)',
+          soft: 'rgb(var(--c-hairline-soft) / <alpha-value>)',
+          strong: 'rgb(var(--c-hairline-strong) / <alpha-value>)',
+        },
+        canvas: 'rgb(var(--c-canvas) / <alpha-value>)', //   fundo da página
+        surface: 'rgb(var(--c-surface) / <alpha-value>)', // superfície de cards
+        elevated: 'rgb(var(--c-elevated) / <alpha-value>)', // preenchimento sutil
+        inverse: 'rgb(var(--c-inverse) / <alpha-value>)', //  superfície de contraste (botão primário)
+        'on-inverse': 'rgb(var(--c-on-inverse) / <alpha-value>)', // texto sobre inverse
+      },
+
+      // ── Tipografia ────────────────────────────────────────────────────────
+      fontFamily: {
+        sans: ['Geist', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Arial', 'sans-serif'],
+        mono: ['Geist Mono', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+      },
+      // Escala nomeada: [tamanho, { lineHeight, letterSpacing, fontWeight }]
+      fontSize: {
+        'display-2xl': ['72px', { lineHeight: '1.0', letterSpacing: '-0.04em', fontWeight: '600' }],
+        'display-xl': ['60px', { lineHeight: '1.02', letterSpacing: '-0.035em', fontWeight: '600' }],
+        'display-lg': ['48px', { lineHeight: '1.05', letterSpacing: '-0.03em', fontWeight: '600' }],
+        'heading-xl': ['40px', { lineHeight: '1.1', letterSpacing: '-0.022em', fontWeight: '600' }],
+        'heading-lg': ['32px', { lineHeight: '1.15', letterSpacing: '-0.02em', fontWeight: '600' }],
+        'heading-md': ['24px', { lineHeight: '1.25', letterSpacing: '-0.017em', fontWeight: '600' }],
+        'heading-sm': ['20px', { lineHeight: '1.3', letterSpacing: '-0.013em', fontWeight: '600' }],
+        'body-xl': ['20px', { lineHeight: '1.6', letterSpacing: '0', fontWeight: '400' }],
+        'body-lg': ['18px', { lineHeight: '1.6', letterSpacing: '0', fontWeight: '400' }],
+        'body-md': ['16px', { lineHeight: '1.6', letterSpacing: '0', fontWeight: '400' }],
+        'body-sm': ['14px', { lineHeight: '1.55', letterSpacing: '0', fontWeight: '400' }],
+        'label-lg': ['15px', { lineHeight: '1.2', letterSpacing: '-0.006em', fontWeight: '500' }],
+        'label-md': ['13px', { lineHeight: '1.2', letterSpacing: '0', fontWeight: '500' }],
+        caption: ['12px', { lineHeight: '1.4', letterSpacing: '0', fontWeight: '400' }],
+        eyebrow: ['12px', { lineHeight: '1', letterSpacing: '0.14em', fontWeight: '400' }],
+        code: ['13px', { lineHeight: '1.6', letterSpacing: '0', fontWeight: '400' }],
+      },
+      letterSpacing: {
+        tightest: '-0.04em',
+        tighter: '-0.03em',
+        tight: '-0.02em',
+        normal: '0',
+        eyebrow: '0.14em',
+        wide: '0.05em',
+      },
+
+      // ── Espaçamento (escala base 4px + tokens de layout) ───────────────────
+      spacing: {
+        4.5: '18px',
+        13: '52px',
+        18: '72px',
+        22: '88px',
+        30: '120px',
+        'section-sm': '64px',
+        section: '96px',
+        'section-lg': '128px',
+        gutter: '24px',
+      },
+
+      // ── Raio de borda ─────────────────────────────────────────────────────
+      borderRadius: {
+        none: '0px',
+        xs: '4px',
+        sm: '8px',
+        md: '12px',
+        lg: '16px',
+        xl: '24px',
+        '2xl': '32px',
+        '3xl': '40px',
+        full: '9999px',
+      },
+
+      // ── Elevação (sombras discretas e refinadas) ──────────────────────────
+      boxShadow: {
+        xs: '0 1px 2px 0 rgb(23 23 23 / 0.04)',
+        sm: '0 1px 3px 0 rgb(23 23 23 / 0.06), 0 1px 2px -1px rgb(23 23 23 / 0.04)',
+        md: '0 4px 12px -2px rgb(23 23 23 / 0.08)',
+        lg: '0 12px 32px -8px rgb(23 23 23 / 0.12)',
+        xl: '0 24px 56px -16px rgb(23 23 23 / 0.16)',
+        // aliases usados nos componentes
+        subtle: '0 1px 2px 0 rgb(23 23 23 / 0.04)',
+        soft: '0 20px 50px -24px rgb(23 23 23 / 0.18)',
+        emerald: '0 20px 50px -20px rgb(16 185 129 / 0.35)',
+      },
+
+      // ── Motion ────────────────────────────────────────────────────────────
+      transitionDuration: {
+        fast: '150ms',
+        normal: '200ms',
+        slow: '300ms',
+        slower: '500ms',
+      },
+      transitionTimingFunction: {
+        'out-soft': 'cubic-bezier(0.22, 1, 0.36, 1)',
+        'in-out-soft': 'cubic-bezier(0.65, 0, 0.35, 1)',
+      },
+
+      // ── Layout ────────────────────────────────────────────────────────────
+      maxWidth: {
+        prose: '68ch',
+        container: '1200px',
+        'container-wide': '1360px',
+      },
+      zIndex: {
+        base: '0',
+        raised: '10',
+        sticky: '40',
+        overlay: '50',
+        modal: '60',
+        popover: '70',
+        toast: '80',
+      },
+      ringWidth: {
+        DEFAULT: '2px',
+      },
+    },
+  },
+  plugins: [],
+}

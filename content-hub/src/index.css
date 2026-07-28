@@ -1,0 +1,184 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─────────────────────────────────────────────────────────────────────────
+   TOKENS DE COR TEMÁVEIS — canais RGB (para permitir opacidade no Tailwind).
+   :root = tema claro · .dark = tema escuro.
+   ───────────────────────────────────────────────────────────────────────── */
+@layer base {
+  :root {
+    --c-canvas: 250 250 250;
+    --c-surface: 255 255 255;
+    --c-elevated: 245 245 245;
+    --c-ink: 23 23 23;
+    --c-body: 38 38 38;
+    --c-mute: 82 82 82;
+    --c-faint: 161 161 161;
+    --c-hairline: 236 236 236;
+    --c-hairline-soft: 244 244 244;
+    --c-hairline-strong: 212 212 212;
+    --c-inverse: 23 23 23;
+    --c-on-inverse: 255 255 255;
+    --brand-grad-from: #10b981;
+    --brand-grad-to: #34d399;
+    --sidebar-bg: 255 255 255;
+    --sidebar-border: 236 236 236;
+  }
+
+  .dark {
+    --c-canvas: 10 10 10;
+    --c-surface: 23 23 23;
+    --c-elevated: 38 38 38;
+    --c-ink: 250 250 250;
+    --c-body: 209 209 209;
+    --c-mute: 168 168 168;
+    --c-faint: 115 115 115;
+    --c-hairline: 38 38 38;
+    --c-hairline-soft: 31 31 31;
+    --c-hairline-strong: 64 64 64;
+    --c-inverse: 250 250 250;
+    --c-on-inverse: 10 10 10;
+    --brand-grad-from: #10b981;
+    --brand-grad-to: #34d399;
+    --sidebar-bg: 17 17 17;
+    --sidebar-border: 38 38 38;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-canvas font-sans text-body antialiased;
+    margin: 0;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply text-ink;
+  }
+
+  ::selection {
+    background-color: #d1fae5;
+    color: #059669;
+  }
+}
+
+@layer components {
+  /* Premium card surface */
+  .premium-card {
+    @apply relative overflow-hidden rounded-xl border border-hairline bg-surface;
+    box-shadow: 0 1px 2px rgb(23 23 23 / 0.03), 0 8px 30px rgb(23 23 23 / 0.04);
+    transition: box-shadow 300ms ease, transform 300ms ease;
+  }
+  .premium-card:hover {
+    box-shadow: 0 4px 12px rgb(23 23 23 / 0.04), 0 16px 48px rgb(23 23 23 / 0.07);
+    transform: translateY(-2px);
+  }
+  .dark .premium-card {
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 12px 40px rgb(0 0 0 / 0.45);
+  }
+  .dark .premium-card:hover {
+    box-shadow: 0 16px 48px rgb(0 0 0 / 0.55);
+  }
+
+  /* Table row hover */
+  .table-row-hover {
+    @apply transition-colors duration-fast;
+  }
+  .table-row-hover:hover {
+    @apply bg-elevated/50;
+  }
+
+  /* Scrollbar styling */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-hairline-strong;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    @apply bg-mute/40;
+  }
+
+  /* Sidebar */
+  .sidebar {
+    background: rgb(var(--sidebar-bg));
+    border-right: 1px solid rgb(var(--sidebar-border));
+  }
+
+  /* Pulse animation for pending items */
+  @keyframes gentle-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+  .pending-pulse {
+    animation: gentle-pulse 2s ease-in-out infinite;
+  }
+}
+
+@layer utilities {
+  .text-brand-gradient {
+    background-image: linear-gradient(to right, var(--brand-grad-from), var(--brand-grad-to));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .bg-brand-gradient {
+    background-image: linear-gradient(to right, var(--brand-grad-from), var(--brand-grad-to));
+  }
+}
+
+/* Calendar day cell */
+.calendar-day {
+  @apply relative flex min-h-[120px] flex-col rounded-lg border border-hairline bg-surface p-2 transition-all duration-fast;
+}
+.calendar-day:hover {
+  @apply border-emerald/30 shadow-sm;
+}
+.calendar-day.today {
+  @apply border-emerald/50 bg-emerald-50/30;
+}
+.dark .calendar-day.today {
+  @apply border-emerald/30 bg-emerald-950/20;
+}
+
+/* Modal backdrop */
+.modal-backdrop {
+  @apply fixed inset-0 z-modal bg-ink/40 backdrop-blur-sm;
+  animation: fadeIn 200ms ease-out;
+}
+.modal-content {
+  animation: slideUp 300ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Toast */
+.toast-enter {
+  animation: toastIn 300ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.toast-exit {
+  animation: toastOut 200ms ease-in forwards;
+}
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(-8px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes toastOut {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(-8px) scale(0.96); }
+}

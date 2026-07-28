@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Content Hub — Organização de conteúdo para criadores digitais. Gerencie vídeos, cortes, frases e calendário de publicações." />
+    <title>Conteúdo Extremo</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- Anti-flash: apply saved theme before first paint -->
+    <script>
+      try {
+        const t = localStorage.getItem('theme')
+        if (t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.classList.add('dark')
+        }
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

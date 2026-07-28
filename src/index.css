@@ -1,0 +1,285 @@
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─────────────────────────────────────────────────────────────────────────
+   TOKENS DE COR TEMÁVEIS — canais RGB (para permitir opacidade no Tailwind).
+   :root = tema claro · .dark = tema escuro. Trocados via classe em <html>.
+   ───────────────────────────────────────────────────────────────────────── */
+@layer base {
+  :root {
+    --c-canvas: 250 250 250;
+    --c-surface: 255 255 255;
+    --c-elevated: 245 245 245;
+    --c-ink: 23 23 23;
+    --c-body: 38 38 38; /*  neutral-800 — corpo mais escuro, leitura premium */
+    --c-mute: 82 82 82; /*  neutral-600 — secundário com mais contraste */
+    --c-faint: 161 161 161;
+    --c-hairline: 236 236 236;
+    --c-hairline-soft: 244 244 244;
+    --c-hairline-strong: 212 212 212;
+    --c-inverse: 23 23 23; /*     botão primário: fundo escuro… */
+    --c-on-inverse: 255 255 255; /* …texto claro */
+    --brand-grad-from: theme('colors.emerald.500');
+    --brand-grad-to: theme('colors.emerald.400');
+  }
+
+  .dark {
+    --c-canvas: 10 10 10;
+    --c-surface: 23 23 23;
+    --c-elevated: 38 38 38;
+    --c-ink: 250 250 250;
+    --c-body: 209 209 209;
+    --c-mute: 168 168 168;
+    --c-faint: 115 115 115;
+    --c-hairline: 38 38 38;
+    --c-hairline-soft: 31 31 31;
+    --c-hairline-strong: 64 64 64;
+    --c-inverse: 250 250 250; /*  botão primário: fundo claro… */
+    --c-on-inverse: 10 10 10; /*  …texto escuro */
+    --brand-grad-from: theme('colors.emerald.500');
+    --brand-grad-to: theme('colors.emerald.400');
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-canvas font-sans text-body antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply text-ink;
+  }
+
+  ::selection {
+    background-color: theme('colors.emerald.soft');
+    color: theme('colors.emerald.deep');
+  }
+}
+
+@layer components {
+  /* Carrossel automático (marquee) — usado por <Marquee /> */
+  .animate-marquee {
+    animation: ds-marquee var(--marquee-duration, 30s) linear infinite;
+  }
+  .animate-skeleton-pulse {
+    animation: ds-skeleton-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  @keyframes ds-marquee {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+
+  /* Card "premium" — superfície temável com anel sutil e leve elevação no hover */
+  .premium-card {
+    @apply relative overflow-hidden rounded-xl border border-hairline bg-surface;
+    box-shadow: 0 1px 2px rgb(23 23 23 / 0.03), 0 8px 30px rgb(23 23 23 / 0.04);
+    transition: box-shadow 300ms ease, transform 300ms ease;
+  }
+  .premium-card:hover {
+    box-shadow: 0 4px 12px rgb(23 23 23 / 0.04), 0 16px 48px rgb(23 23 23 / 0.07);
+    transform: translateY(-2px);
+  }
+  .dark .premium-card {
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 12px 40px rgb(0 0 0 / 0.45);
+  }
+  .dark .premium-card:hover {
+    box-shadow: 0 16px 48px rgb(0 0 0 / 0.55);
+  }
+
+  /* Textura de ruído sutil (overlay) */
+  .noise-bg {
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.02'/%3E%3C/svg%3E");
+    background-repeat: repeat;
+  }
+}
+
+/* ==========================================================================
+   Shiny CTA Button — pílula escura com borda esmeralda giratória (funciona
+   em tema claro e escuro). Uso: <Button variant="shiny">…</Button>
+   ========================================================================== */
+@property --gradient-angle { syntax: "<angle>"; initial-value: 0deg; inherits: true; }
+@property --gradient-angle-offset { syntax: "<angle>"; initial-value: 0deg; inherits: true; }
+@property --gradient-shine { syntax: "<color>"; initial-value: #10b981; inherits: true; }
+@property --bg-color-top { syntax: "<color>"; initial-value: #1c2421; inherits: true; }
+@property --bg-color-bottom { syntax: "<color>"; initial-value: #0a0a0a; inherits: true; }
+
+.shiny-cta {
+  --gradient-angle: 0deg;
+  --gradient-angle-offset: 0deg;
+  --gradient-shine: #10b981;
+  --bg-color-top: #1c2421;
+  --bg-color-bottom: #0a0a0a;
+  position: relative;
+  overflow: hidden;
+  border-radius: 9999px;
+  color: #ffffff;
+  background: linear-gradient(var(--bg-color-top), var(--bg-color-bottom)) padding-box,
+    conic-gradient(
+        from calc(var(--gradient-angle) - var(--gradient-angle-offset)),
+        transparent 0%, #047857 5%, var(--gradient-shine) 15%, #047857 30%, transparent 40%, transparent 100%
+      )
+      border-box;
+  border: 1px solid transparent;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.15), inset 0 -2px 6px rgba(0, 0, 0, 0.2),
+    0 12px 24px -8px rgba(0, 0, 0, 0.5);
+  transition: box-shadow 300ms ease, transform 300ms ease;
+  isolation: isolate;
+  z-index: 1;
+  animation: border-spin 2.5s linear infinite;
+}
+
+@keyframes border-spin {
+  to {
+    --gradient-angle: 360deg;
+  }
+}
+
+.shiny-cta:hover {
+  --bg-color-top: #232e29;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.25), inset 0 -2px 6px rgba(0, 0, 0, 0.25),
+    0 16px 32px -8px rgba(16, 185, 129, 0.6);
+}
+.shiny-cta:active {
+  transform: translateY(1px);
+}
+
+
+
+  /* (removido) O "sweep" lateral deixava uma linha dura passando de um lado ao
+     outro. Mantemos só a borda esmeralda giratória. */
+  
+.shiny-cta-content {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* ==========================================================================
+   Shiny Brand Button — pílula esmeralda com borda branca giratória.
+   Uso: <Button variant="shiny-brand">…</Button>
+   ========================================================================== */
+@property --bg-color-brand-top { syntax: "<color>"; initial-value: #10b981; inherits: true; }
+@property --bg-color-brand-bottom { syntax: "<color>"; initial-value: #047857; inherits: true; }
+@property --gradient-shine-brand { syntax: "<color>"; initial-value: #ffffff; inherits: true; }
+
+.shiny-brand {
+  --gradient-angle: 0deg;
+  --gradient-angle-offset: 0deg;
+  --gradient-shine-brand: #ffffff;
+  --bg-color-brand-top: #10b981;
+  --bg-color-brand-bottom: #047857;
+  position: relative;
+  overflow: hidden;
+  border-radius: 9999px;
+  color: #ffffff;
+  background: linear-gradient(var(--bg-color-brand-top), var(--bg-color-brand-bottom)) padding-box,
+    conic-gradient(
+        from calc(var(--gradient-angle) - var(--gradient-angle-offset)),
+        transparent 0%, #047857 5%, var(--gradient-shine-brand) 15%, #047857 30%, transparent 40%, transparent 100%
+      )
+      border-box;
+  border: 1px solid transparent;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.4), inset 0 -2px 6px rgba(0, 0, 0, 0.2),
+    0 12px 24px -8px rgba(16, 185, 129, 0.5);
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+  isolation: isolate;
+  z-index: 1;
+  animation: border-spin 2.5s linear infinite;
+}
+.shiny-brand:hover {
+  --bg-color-brand-top: #059669;
+  --bg-color-brand-bottom: #065f46;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.5), inset 0 -2px 6px rgba(0, 0, 0, 0.25),
+    0 16px 32px -8px rgba(16, 185, 129, 0.6);
+}
+.shiny-brand:active {
+  transform: translateY(1px);
+}
+
+/* (removido) sweep lateral — ver nota no .shiny-cta acima. */
+
+/* Botão secundário no tema escuro (traçado): fundo pontilhado sutil,
+   ecoando o padrão de pontos do botão principal (shiny). */
+.dark .ds-btn-secondary::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.12) 0.5px, transparent 0);
+  background-size: 6px 6px;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+/* O CTA shiny permanece PRETO no tema escuro — a borda esmeralda giratória
+   dá visibilidade e ele contrasta bem com o secundário traçado (transparente). */
+
+/* ==========================================================================
+   Plano em destaque — mantém a leve escala de forma persistente (o hover do
+   premium-card não pode encolher o card). Fora de @layer para vencer a regra.
+   ========================================================================== */
+@media (min-width: 768px) {
+  .pricing-featured {
+    transform: scale(1.04);
+  }
+  .pricing-featured:hover {
+    transform: translateY(-2px) scale(1.04);
+  }
+}
+
+@layer utilities {
+  .text-brand-gradient {
+    background-image: linear-gradient(to right, var(--brand-grad-from), var(--brand-grad-to));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .hover-text-shine {
+    background-image: linear-gradient(
+      110deg,
+      var(--brand-grad-from) 0%,
+      var(--brand-grad-to) 40%,
+      theme('colors.emerald.200') 50%,
+      var(--brand-grad-to) 60%,
+      var(--brand-grad-from) 100%
+    );
+    background-size: 250% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    transition: background-position 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    background-position: 100% center;
+  }
+  .hover-text-shine:hover {
+    background-position: 0% center;
+  }
+  .bg-brand-gradient {
+    background-image: linear-gradient(to right, var(--brand-grad-from), var(--brand-grad-to));
+  }
+  .fill-brand-gradient {
+    fill: url(#brand-gradient);
+  }
+  .stroke-brand-gradient {
+    stroke: url(#brand-gradient) !important;
+  }
+}

@@ -1,0 +1,114 @@
+-- Migration: Create all tables for Content Hub
+-- Run this in Supabase SQL Editor (https://supabase.com/dashboard/project/_/sql/new)
+
+-- 1. Videos Longos
+create table if not exists videos_longos (
+  id uuid default gen_random_uuid() primary key,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  gravado boolean default false,
+  editado boolean default false,
+  aprovado boolean default false,
+  publicado boolean default false,
+  categoria text default '',
+  onde_quem text default '',
+  tema text default '',
+  link_finalizado text default '',
+  thumb text default '',
+  descricao text default ''pron
+);
+
+-- 2. Videos Curtos
+create table if not exists videos_curtos (
+  id uuid default gen_random_uuid() primary key,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  editado boolean default false,
+  aprovado boolean default false,
+  publicado boolean default false,
+  categoria text default '',
+  titulo text default '',
+  link_finalizado text default ''
+);
+
+-- 3. Cortes
+create table if not exists cortes (
+  id uuid default gen_random_uuid() primary key,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  editado boolean default false,
+  aprovado boolean default false,
+  conteudo_original text default '',
+  observacao text default '',
+  titulo text default '',
+  titulo_melhor text default '',
+  link_finalizado text default ''
+);
+
+-- 4. Frases
+create table if not exists frases (
+  id uuid default gen_random_uuid() primary key,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  frase text default '',
+  visualizacoes integer default 0,
+  interacoes integer default 0,
+  atividade_perfil integer default 0,
+  novos_seguidores integer default 0,
+  publicado boolean default false
+);
+
+-- 5. Equipe
+create table if not exists equipe (
+  id uuid default gen_random_uuid() primary key,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  nome text not null,
+  email text not null,
+  cargo text default 'Viewer',
+  status text default 'pendente'
+);
+
+-- 6. Calendario
+create table if not exists calendario (
+  id uuid default gen_random_uuid() primary key,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  agenda date,
+  horario text default '12:00',
+  formato text default 'Reels',
+  conteudo text default '',
+  conteudo_ref text default '',
+  status text default 'Rascunho'
+);
+
+-- 7. Producao
+create table if not exists producao (
+  id uuid default gen_random_uuid() primary key,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  titulo text default '',
+  conteudo text default '',
+  tipo text default 'chat',
+  favorito boolean default false,
+  criado_em timestamptz default now()
+);
+
+-- Enable Row Level Security (opcional — liberado para anon key por enquanto)
+alter table videos_longos enable row level security;
+alter table videos_curtos enable row level security;
+alter table cortes enable row level security;
+alter table frases enable row level security;
+alter table equipe enable row level security;
+alter table calendario enable row level security;
+alter table producao enable row level security;
+
+-- Policy: allow all operations for anon key (para time pequeno)
+-- Em produção, troque por autenticação real
+create policy "Allow all for anon" on videos_longos for all using (true) with check (true);
+create policy "Allow all for anon" on videos_curtos for all using (true) with check (true);
+create policy "Allow all for anon" on cortes for all using (true) with check (true);
+create policy "Allow all for anon" on frases for all using (true) with check (true);
+create policy "Allow all for anon" on equipe for all using (true) with check (true);
+create policy "Allow all for anon" on calendario for all using (true) with check (true);
+create policy "Allow all for anon" on producao for all using (true) with check (true);
