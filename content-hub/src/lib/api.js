@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
+const API_URL = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' ? '/api' : 'http://localhost:3001/api')
 
 export const api = {
   async ai(type, context, userPrompt, messages) {
@@ -68,6 +68,15 @@ export const api = {
     }
   },
 
+  async instagramUser() {
+    try {
+      const res = await fetch(`${API_URL}/instagram/user`)
+      return res.json()
+    } catch (e) {
+      return { error: 'Servidor offline' }
+    }
+  },
+
   async youtubeChannelStats() {
     try {
       const res = await fetch(`${API_URL}/youtube/channel-stats`)
@@ -131,6 +140,19 @@ export const api = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tema, duracao }),
+      })
+      return res.json()
+    } catch (e) {
+      return { error: 'Servidor offline' }
+    }
+  },
+
+  async post(path, body) {
+    try {
+      const res = await fetch(`${API_URL}${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
       })
       return res.json()
     } catch (e) {

@@ -138,16 +138,22 @@
 
 /* Calendar day cell */
 .calendar-day {
-  @apply relative flex min-h-[120px] flex-col rounded-lg border border-hairline bg-surface p-2 transition-all duration-fast;
+  @apply relative flex min-h-[130px] flex-col bg-surface p-3 transition-all duration-fast;
 }
 .calendar-day:hover {
-  @apply border-emerald/30 shadow-sm;
+  @apply bg-elevated/50 shadow-sm;
 }
 .calendar-day.today {
-  @apply border-emerald/50 bg-emerald-50/30;
+  @apply ring-2 ring-emerald bg-emerald-50/20;
 }
 .dark .calendar-day.today {
-  @apply border-emerald/30 bg-emerald-950/20;
+  @apply ring-emerald/60 bg-emerald-950/20;
+}
+.calendar-day.drag-over {
+  @apply bg-emerald/10 shadow-inner;
+}
+.dark .calendar-day.drag-over {
+  @apply bg-emerald-950/30;
 }
 
 /* Modal backdrop */

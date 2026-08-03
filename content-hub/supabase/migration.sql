@@ -42,7 +42,8 @@ create table if not exists cortes (
   observacao text default '',
   titulo text default '',
   titulo_melhor text default '',
-  link_finalizado text default ''
+  link_finalizado text default '',
+  link_drive text default ''
 );
 
 -- 4. Frases

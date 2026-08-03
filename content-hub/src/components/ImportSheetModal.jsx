@@ -17,7 +17,7 @@ const COLLECTION_MAP = {
     fields: ['titulo', 'categoria', 'linkFinalizado', 'editado', 'aprovado', 'publicado'],
   },
   cortes: {
-    label: 'Cortes',
+    label: 'Carrossel',
     aliases: ['titulo', 'título', 'conteudooriginal', 'conteudo original', 'conteudo', 'observacao', 'observação', 'titulomelhor', 'titulo melhor', 'linkfinalizado', 'link', 'editado', 'aprovado'],
     fields: ['titulo', 'conteudoOriginal', 'observacao', 'tituloMelhor', 'linkFinalizado', 'editado', 'aprovado'],
   },

@@ -6,7 +6,7 @@ import { Button } from '../../components/ui/Button'
 import { cn } from '../../lib/cn'
 import { api } from '../../lib/api'
 import {
-  Video, Film, Scissors, MessageSquareQuote, Calendar,
+  Video, Film, LayoutGrid, MessageSquareQuote, Calendar,
   Eye, Heart, UserPlus, Activity, AlertTriangle,
   TrendingUp, Clock, CheckCircle, BarChart3,
   Loader2, RefreshCw, ThumbsUp, MessageCircle,
@@ -96,7 +96,7 @@ export function DashboardPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard icon={Video} label="Vídeos Longos" value={stats.vlCount} color="blue" />
         <StatCard icon={Film} label="Vídeos Curtos" value={stats.vcCount} color="purple" />
-        <StatCard icon={Scissors} label="Cortes" value={stats.coCount} color="amber" />
+        <StatCard icon={LayoutGrid} label="Carrossel" value={stats.coCount} color="amber" />
         <StatCard icon={MessageSquareQuote} label="Frases" value={stats.frCount} color="emerald" />
       </div>
 

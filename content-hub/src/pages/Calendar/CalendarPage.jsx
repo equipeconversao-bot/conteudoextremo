@@ -93,6 +93,37 @@ export function CalendarPage() {
 
   const todayStr = new Date().toISOString().split('T')[0]
 
+  const [dragOverDate, setDragOverDate] = useState(null)
+
+  function handleDragStart(e, post) {
+    e.dataTransfer.setData('text/plain', JSON.stringify({ id: post.id, sourceDate: post.agenda }))
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  function handleDragOver(e, dateStr) {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDragOverDate(dateStr)
+  }
+
+  function handleDragLeave() {
+    setDragOverDate(null)
+  }
+
+  function handleDrop(e, targetDate) {
+    e.preventDefault()
+    setDragOverDate(null)
+    try {
+      const data = JSON.parse(e.dataTransfer.getData('text/plain'))
+      if (data.sourceDate !== targetDate) {
+        updateItem(data.id, { agenda: targetDate })
+        toast('Post movido para ' + targetDate)
+      }
+    } catch (err) {
+      console.error('Drop error:', err)
+    }
+  }
+
   function openAdd(dateStr) {
     setEditing(null)
     setSelectedDate(dateStr)
@@ -167,7 +198,7 @@ export function CalendarPage() {
         </div>
 
         {/* Day cells */}
-        <div className="grid grid-cols-7">
+        <div className="grid grid-cols-7 gap-px bg-hairline">
           {calendarDays.map((cell, idx) => {
             const posts = cell.date ? (postsByDate[cell.date] || []) : []
             const isToday = cell.date === todayStr
@@ -176,11 +207,15 @@ export function CalendarPage() {
               <div
                 key={idx}
                 onClick={() => cell.inMonth && cell.date && posts.length === 0 && openAdd(cell.date)}
+                onDragOver={e => cell.inMonth && cell.date && handleDragOver(e, cell.date)}
+                onDragLeave={handleDragLeave}
+                onDrop={e => cell.inMonth && cell.date && handleDrop(e, cell.date)}
                 className={cn(
-                  'calendar-day border-b border-r border-hairline min-h-[110px] lg:min-h-[120px]',
+                  'calendar-day min-h-[110px] lg:min-h-[120px]',
                   !cell.inMonth && 'opacity-30',
                   isToday && 'today',
                   cell.inMonth && posts.length === 0 && 'cursor-pointer',
+                  dragOverDate === cell.date && 'drag-over',
                 )}
               >
                 <div className="flex items-center justify-between mb-1">
@@ -200,10 +235,12 @@ export function CalendarPage() {
                   )}
                 </div>
 
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-1.5">
                   {posts.map(post => (
                     <button
                       key={post.id}
+                      draggable
+                      onDragStart={e => handleDragStart(e, post)}
                       onClick={e => { e.stopPropagation(); openEdit(post) }}
                       className={cn(
                         'w-full text-left px-2 py-1 rounded-md text-[11px] font-medium border truncate transition-all hover:shadow-sm',

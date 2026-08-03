@@ -23,7 +23,6 @@ const screens = {
 
 export default function App() {
   const [view, setView] = useState('foundations')
-
   return (
     <div>
       <svg className="pointer-events-none absolute h-0 w-0">

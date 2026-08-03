@@ -7,7 +7,10 @@ const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages'
 
 async function callClaude(messages, systemPrompt) {
   const key = process.env.ANTHROPIC_API_KEY || ''
-  if (!key) return null
+  if (!key) {
+    console.log('callClaude: no ANTHROPIC_API_KEY')
+    return null
+  }
 
   try {
     const res = await fetch(ANTHROPIC_API, {
@@ -28,16 +31,11 @@ async function callClaude(messages, systemPrompt) {
       }),
     })
 
-    if (!res.ok) {
-      const errText = await res.text()
-      console.warn('Claude API Error:', errText)
-      return null
-    }
+    if (!res.ok) return null
 
     const data = await res.json()
     return { text: data.content[0]?.text?.trim() }
   } catch (err) {
-    console.error('Claude API call failed:', err)
     return null
   }
 }
@@ -68,64 +66,205 @@ async function callOpenAI(messages, systemPrompt) {
   }
 }
 
-const SYSTEM_PROMPT = `Você é um analista de conteúdo especializado em identificar os melhores cortes e ganchos em transcrições de vídeo.
+const SYSTEM_PROMPT = `Você é um analista de conteúdo especializado em identificar cortes em transcrições de vídeo.
 
-A transcrição fornecida contém timecodes no formato [HH:MM:SS] ou similar.
-
-Sua tarefa é:
-1. Analisar toda a transcrição
-2. Identificar OS MELHORES MOMENTOS para cortes — priorize:
-   - Hooks e aberturas fortes (primeiros segundos de cada bloco)
-   - Momentos de alto valor informativo (dicas, estratégias, dados)
-   - Pontos de virada ou transições importantes
-   - Frases de impacto que geram engajamento
-   - Inícios de novos tópicos relevantes
-
-3. Retorne APENAS um array JSON válido com objetos contendo:
-   - "inicio": string do timecode de início (ex: "00:01:23")
-   - "fim": string do timecode de fim (ex: "00:01:45")
-   - "titulo": string com título descritivo do corte (máx 60 chars)
-   - "descricao": string explicando por que esse trecho é bom (máx 120 chars)
+A transcrição contém timecodes no formato [HH:MM:SS] ou similar.
 
 REGRAS:
-- Extraia entre 5 e 15 cortes no máximo
-- Os timecodes DEVEM vir da transcrição original, não invente
+- Extraia ENTRE 10 E 25 CORTES por vídeo
+- Busque identificar TODOS os momentos interessantes, não seja tão criterioso
+- Inclua hooks, dicas, exemplos, transições, resultados, opiniões fortes
+- Cada corte deve ter entre 5 e 30 segundos de duração
+- Prefira MAIS cortes a menos cortes
+
+Retorne APENAS um array JSON válido com:
+  - "inicio": timecode de início (ex: "00:01:23")
+  - "fim": timecode de fim (ex: "00:01:45")
+  - "titulo": título descritivo do corte (máx 60 chars)
+  - "descricao": breve descrição do conteúdo (máx 120 chars)
+
+REGRAS TÉCNICAS:
+- Mínimo 10, máximo 25 cortes
+- Timecodes DEVEM vir da transcrição, não invente
 - Se não houver timecodes, retorne array vazio
-- Retorne SOMENTE o JSON, sem markdown, sem comentários
+- Retorne SOMENTE o JSON, sem markdown
 
-Exemplo de resposta:
-[{"inicio":"00:02:15","fim":"00:02:35","titulo":"Hook: O erro que todo criador comete","descricao":"Abertura forte com gatilho de curiosidade"},{"inicio":"00:05:00","fim":"00:05:20","titulo":"Dica: Como organizar o conteúdo","descricao":"Momento de alto valor educativo com passo a passo"}]`
+Exemplo:
+[{"inicio":"00:02:15","fim":"00:02:35","titulo":"Hook: O erro que todo criador comete","descricao":"Abertura forte com gatilho de curiosidade"},{"inicio":"00:05:00","fim":"00:05:20","titulo":"Dica prática de edição","descricao":"Tutorial passo a passo com exemplo real"}]`
 
-function gerarFCPXML(segmentos, nomeVideo = 'Transcrição') {
-  const videoDuration = segmentos.length > 0
-    ? segmentos.reduce((max, s) => Math.max(max, timecodeToSeconds(s.fim)), 0) + 60
-    : 3600
+function timecodeToSMPTE(tc) {
+  if (!tc) return '00:00:00:00'
+  const parts = tc.replace(/[\[\]]/g, '').split(/[:,;]/)
+  const h = String(parseInt(parts[0], 10) || 0).padStart(2, '0')
+  const m = String(parseInt(parts[1], 10) || 0).padStart(2, '0')
+  const s = String(parseInt(parts[2], 10) || 0).padStart(2, '0')
+  return `${h}:${m}:${s}:00`
+}
 
-  const markersXML = segmentos.map((seg, i) => {
-    const startSec = timecodeToSeconds(seg.inicio)
-    return `            <marker start="${startSec}s" duration="1s" value="Corte ${i + 1}: ${escapeXml(seg.titulo)}" note="${escapeXml(seg.descricao)}"/>`
-  }).join('\n')
+function gerarCSV(segmentos) {
+  const linhas = ['Name, In Time, Out Time, Comments']
+  segmentos.forEach((seg, i) => {
+    const name = `Corte ${i + 1}: ${seg.titulo}`.replace(/"/g, '""')
+    const desc = (seg.descricao || '').replace(/"/g, '""')
+    linhas.push(`"${name}", ${timecodeToSMPTE(seg.inicio)}, ${timecodeToSMPTE(seg.fim)}, "${desc}"`)
+  })
+  return linhas.join('\n')
+}
+
+function secondsToFrames(sec, fps = 30) {
+  return Math.round(sec * fps)
+}
+
+function gerarXMEML(segmentos, nomeVideo = 'Transcrição') {
+  if (!segmentos.length) {
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE xmeml>
+<xmeml version="5">
+  <sequence id="sequence-mineracao">
+    <name>Mineração — ${escapeXml(nomeVideo)}</name>
+    <duration>1</duration>
+    <rate><timebase>30</timebase><ntsc>TRUE</ntsc></rate>
+    <timecode>
+      <rate><timebase>30</timebase><ntsc>TRUE</ntsc></rate>
+      <string>00:00:00:00</string>
+      <frame>0</frame>
+      <displayformat>NDF</displayformat>
+    </timecode>
+  </sequence>
+</xmeml>`
+  }
+
+  const sourceEndSec = segmentos.reduce((max, s) => Math.max(max, timecodeToSeconds(s.fim)), 0)
+  const sourceDuration = secondsToFrames(sourceEndSec + 60)
+  const totalDuration = segmentos.reduce((acc, seg) => {
+    const d = secondsToFrames(timecodeToSeconds(seg.fim)) - secondsToFrames(timecodeToSeconds(seg.inicio))
+    return acc + Math.max(d, 0)
+  }, 0)
+
+  let markerPos = 0
+  const markers = []
+
+  segmentos.forEach((seg, i) => {
+    const duration = secondsToFrames(timecodeToSeconds(seg.fim)) - secondsToFrames(timecodeToSeconds(seg.inicio))
+    if (duration <= 0) return
+
+    markers.push(`    <marker>
+      <name>${escapeXml(`Corte ${i + 1} — ${seg.titulo}`)}</name>
+      <comment>${escapeXml(seg.descricao || '')}</comment>
+      <in>${markerPos}</in>
+      <out>${markerPos + duration}</out>
+    </marker>`)
+    markerPos += duration
+  })
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE fcpxml>
-<fcpxml version="1.10">
-  <resources>
-    <format id="r1" name="FFVideoFormatRate30" frameDuration="1001/30000s" width="1920" height="1080"/>
-  </resources>
-  <library>
-    <event name="Mineração de Conteúdo">
-      <project name="Projeto - ${escapeXml(nomeVideo)}">
-        <sequence>
-          <spine>
-            <gap name="Timeline" offset="0s" duration="${videoDuration}s">
-${markersXML}
-            </gap>
-          </spine>
-        </sequence>
-      </project>
-    </event>
-  </library>
-</fcpxml>`
+<!DOCTYPE xmeml>
+<xmeml version="5">
+  <sequence id="sequence-mineracao">
+    <name>Mineração — ${escapeXml(nomeVideo)}</name>
+    <duration>${totalDuration}</duration>
+    <rate>
+      <timebase>30</timebase>
+      <ntsc>TRUE</ntsc>
+    </rate>
+    <timecode>
+      <rate>
+        <timebase>30</timebase>
+        <ntsc>TRUE</ntsc>
+      </rate>
+      <string>00:00:00:00</string>
+      <frame>0</frame>
+      <displayformat>NDF</displayformat>
+    </timecode>
+${markers.join('\n')}
+    <media>
+      <video>
+        <format>
+          <samplecharacteristics>
+            <rate>
+              <timebase>30</timebase>
+              <ntsc>TRUE</ntsc>
+            </rate>
+            <width>1920</width>
+            <height>1080</height>
+            <anamorphic>FALSE</anamorphic>
+            <pixelaspectratio>square</pixelaspectratio>
+            <fielddominance>none</fielddominance>
+          </samplecharacteristics>
+        </format>
+        <track>
+          <clipitem id="base-clip">
+            <name>Mineração</name>
+            <duration>${totalDuration}</duration>
+            <rate>
+              <timebase>30</timebase>
+              <ntsc>TRUE</ntsc>
+            </rate>
+            <start>0</start>
+            <end>${totalDuration}</end>
+            <in>0</in>
+            <out>${sourceDuration}</out>
+            <file id="source-file">
+              <name>video.mp4</name>
+              <pathurl>file://localhost/video.mp4</pathurl>
+              <duration>${sourceDuration}</duration>
+              <rate>
+                <timebase>30</timebase>
+                <ntsc>TRUE</ntsc>
+              </rate>
+              <media>
+                <video>
+                  <samplecharacteristics>
+                    <rate>
+                      <timebase>30</timebase>
+                      <ntsc>TRUE</ntsc>
+                    </rate>
+                    <width>1920</width>
+                    <height>1080</height>
+                    <anamorphic>FALSE</anamorphic>
+                    <pixelaspectratio>square</pixelaspectratio>
+                    <fielddominance>none</fielddominance>
+                  </samplecharacteristics>
+                </video>
+                <audio>
+                  <samplecharacteristics>
+                    <depth>16</depth>
+                    <samplerate>48000</samplerate>
+                  </samplecharacteristics>
+                  <channelcount>2</channelcount>
+                </audio>
+              </media>
+            </file>
+          </clipitem>
+        </track>
+      </video>
+      <audio>
+        <numOutputChannels>2</numOutputChannels>
+        <format>
+          <samplecharacteristics>
+            <depth>16</depth>
+            <samplerate>48000</samplerate>
+          </samplecharacteristics>
+        </format>
+        <track>
+          <clipitem id="audio-base">
+            <name>Áudio</name>
+            <duration>${totalDuration}</duration>
+            <rate>
+              <timebase>30</timebase>
+              <ntsc>TRUE</ntsc>
+            </rate>
+            <start>0</start>
+            <end>${totalDuration}</end>
+            <in>0</in>
+            <out>${sourceDuration}</out>
+            <file id="source-file"/>
+          </clipitem>
+        </track>
+      </audio>
+    </media>
+  </sequence>
+</xmeml>`
 }
 
 function timecodeToSeconds(tc) {
@@ -149,6 +288,15 @@ function escapeXml(str) {
     .replace(/'/g, '&apos;')
 }
 
+mineracaoRouter.get('/debug', (req, res) => {
+  res.json({
+    openai_key_set: !!process.env.OPENAI_API_KEY,
+    anthropic_key_set: !!process.env.ANTHROPIC_API_KEY,
+    node_env: process.env.NODE_ENV,
+    vercel_env: process.env.VERCEL_ENV,
+  })
+})
+
 mineracaoRouter.post('/analisar', async (req, res) => {
   const { transcricao } = req.body
 
@@ -170,6 +318,15 @@ mineracaoRouter.post('/analisar', async (req, res) => {
     })
   }
 
+  let nomeVideo = 'Transcrição'
+  for (const linha of transcricao.split('\n')) {
+    const limpa = linha.replace(/^[\s\d\-:;,.\/\[\]()>]+/, '').trim()
+    if (limpa.length > 5) {
+      nomeVideo = limpa.substring(0, 60)
+      break
+    }
+  }
+
   try {
     const jsonStr = result.text.replace(/```json\s*/gi, '').replace(/```\s*$/, '').trim()
     const segmentos = JSON.parse(jsonStr)
@@ -177,17 +334,19 @@ mineracaoRouter.post('/analisar', async (req, res) => {
     if (!Array.isArray(segmentos) || segmentos.length === 0) {
       return res.json({
         segmentos: [],
-        aviso: 'Nenhum corte identificado. A transcrição pode não conter timecodes válidos.',
+        xmeml: gerarXMEML([], nomeVideo),
+        csv: gerarCSV([]),
+        totalCortes: 0,
+        aviso: 'Nenhum corte identificado pela IA. Pode ser que a transcrição seja muito curta ou genérica. Tente com um conteúdo mais denso.',
       })
     }
-
-    const nomeVideo = transcricao.split('\n')[0]?.substring(0, 60) || 'Transcrição'
-    const fcpxml = gerarFCPXML(segmentos, nomeVideo)
+    const xmeml = gerarXMEML(segmentos, nomeVideo)
+    const csv = gerarCSV(segmentos)
 
     res.json({
       segmentos,
-      fcpxml,
-      filename: `projeto-mineracao-${Date.now()}.xml`,
+      xmeml,
+      csv,
       totalCortes: segmentos.length,
     })
   } catch (e) {
@@ -196,8 +355,8 @@ mineracaoRouter.post('/analisar', async (req, res) => {
     const fallback = gerarSimulacao(transcricao)
     res.json({
       segmentos: fallback,
-      fcpxml: gerarFCPXML(fallback),
-      filename: `projeto-mineracao-${Date.now()}.xml`,
+      xmeml: gerarXMEML(fallback),
+      csv: gerarCSV(fallback),
       totalCortes: fallback.length,
       aviso: 'Resposta da IA teve formato inesperado. Usei análise simulada como fallback.',
     })

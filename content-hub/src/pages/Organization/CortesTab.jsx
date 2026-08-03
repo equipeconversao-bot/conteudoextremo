@@ -14,14 +14,14 @@ import { cn } from '../../lib/cn'
 import { AiButton } from '../../components/ai/AiPanel'
 import { ClaudeButton } from '../../components/claude/ClaudePanel'
 import { ScheduleModal } from '../../components/calendar/ScheduleModal'
-import { Plus, Pencil, Trash2, ExternalLink, AlertCircle, Scissors, Download } from 'lucide-react'
+import { Plus, Pencil, Trash2, ExternalLink, AlertCircle, LayoutGrid, Download, Folder } from 'lucide-react'
 
 const STAGES = ['editado', 'aprovado']
 const STAGE_LABELS = { editado: 'Editado', aprovado: 'Aprovado' }
 
 const emptyItem = {
   conteudoOriginal: '', editado: false, aprovado: false,
-  observacao: '', titulo: '', tituloMelhor: '', linkFinalizado: '',
+  observacao: '', titulo: '', linkFinalizado: '', linkDrive: '',
 }
 
 export function CortesTab({ onNavigate }) {
@@ -39,8 +39,7 @@ export function CortesTab({ onNavigate }) {
     const s = search.toLowerCase()
     return items.filter(item =>
       item.titulo?.toLowerCase().includes(s) ||
-      item.conteudoOriginal?.toLowerCase().includes(s) ||
-      item.tituloMelhor?.toLowerCase().includes(s)
+      item.conteudoOriginal?.toLowerCase().includes(s)
     )
   }, [items, search])
 
@@ -55,8 +54,8 @@ export function CortesTab({ onNavigate }) {
       setScheduleTarget({
         id: item.id,
         title: item.titulo,
-        type: 'Corte',
-        defaultFormat: 'Reels',
+        type: 'Carrossel',
+        defaultFormat: 'Carrossel',
       })
     }
   }
@@ -67,10 +66,10 @@ export function CortesTab({ onNavigate }) {
 
     if (editing) {
       updateItem(editing.id, data)
-      toast('Corte atualizado')
+      toast('Carrossel atualizado')
     } else {
       addItem(data)
-      toast('Corte adicionado')
+      toast('Carrossel adicionado')
     }
     setModalOpen(false)
 
@@ -78,8 +77,8 @@ export function CortesTab({ onNavigate }) {
       setScheduleTarget({
         id: savedId || 'new',
         title: data.titulo,
-        type: 'Corte',
-        defaultFormat: 'Reels',
+        type: 'Carrossel',
+        defaultFormat: 'Carrossel',
       })
     }
   }
@@ -103,7 +102,7 @@ export function CortesTab({ onNavigate }) {
   function handleDelete() {
     if (deleteTarget) {
       deleteItem(deleteTarget.id)
-      toast('Corte excluído')
+      toast('Carrossel excluído')
       setDeleteTarget(null)
     }
   }
@@ -119,25 +118,25 @@ export function CortesTab({ onNavigate }) {
           CSV
         </Button>
         <Button variant="primary" size="sm" onClick={openAdd} icon={<Plus size={16} />}>
-          Novo Corte
+          Novo Carrossel
         </Button>
       </div>
 
       {filtered.length === 0 ? (
-        <EmptyState icon={Scissors} title="Nenhum corte encontrado" description="Adicione um novo corte ou ajuste a busca." />
+        <EmptyState icon={LayoutGrid} title="Nenhum carrossel encontrado" description="Adicione um novo carrossel ou ajuste a busca." />
       ) : (
         <div className="overflow-x-auto rounded-xl border border-hairline">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-hairline bg-elevated/50">
-                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-mute">Conteúdo Original</th>
                 {STAGES.map(s => (
                   <th key={s} className="px-3 py-3 text-center text-[11px] font-semibold uppercase tracking-wider text-mute w-20">
                     {STAGE_LABELS[s]}
                   </th>
                 ))}
+                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-mute">Conteúdo Original</th>
                 <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-mute">Título</th>
-                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-mute">Título Melhor</th>
+                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-mute w-28">Link do Drive</th>
                 <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-mute w-24">Link</th>
                 <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-mute w-20">Ações</th>
               </tr>
@@ -148,14 +147,14 @@ export function CortesTab({ onNavigate }) {
                   'border-b border-hairline-soft table-row-hover',
                   isPending(item) && 'bg-amber-50/30 dark:bg-amber-950/10',
                 )}>
-                  <td className="px-4 py-4">
-                    <span className="text-xs text-mute bg-elevated px-2 py-1 rounded-md">{item.conteudoOriginal}</span>
-                  </td>
                   {STAGES.map(stage => (
                     <td key={stage} className="px-3 py-4 text-center">
                       <Checkbox checked={item[stage]} onChange={() => handleStageClick(item, stage)} />
                     </td>
                   ))}
+                  <td className="px-4 py-4">
+                    <span className="text-xs text-mute bg-elevated px-2 py-1 rounded-md">{item.conteudoOriginal}</span>
+                  </td>
                   <td className="px-4 py-4">
                     <div className="flex items-center gap-2">
                       <span className="text-ink font-medium">{item.titulo}</span>
@@ -167,8 +166,18 @@ export function CortesTab({ onNavigate }) {
                     </div>
                     {item.observacao && <p className="text-xs text-mute mt-0.5">{item.observacao}</p>}
                   </td>
-                  <td className="px-4 py-4 text-body text-sm">
-                    {item.tituloMelhor || <span className="text-faint">—</span>}
+                  <td className="px-4 py-4">
+                    {item.linkDrive ? (
+                      <a
+                        href={item.linkDrive}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 text-xs text-amber hover:text-amber-deep underline underline-offset-2 transition-colors max-w-[200px] truncate"
+                      >
+                        <Folder size={12} className="shrink-0" />
+                        <span className="truncate">{item.linkDrive.replace(/^https?:\/\//, '')}</span>
+                      </a>
+                    ) : <span className="text-faint">—</span>}
                   </td>
                   <td className="px-4 py-4">
                     {item.linkFinalizado ? (
@@ -185,8 +194,8 @@ export function CortesTab({ onNavigate }) {
                   </td>
                   <td className="px-4 py-4">
                     <div className="flex items-center justify-end gap-1">
-                      <ClaudeButton context={item} title="Claude — Corte" />
-                      <AiButton context={item} title="IA — Corte" />
+                      <ClaudeButton context={item} title="Claude — Carrossel" />
+                      <AiButton context={item} title="IA — Carrossel" />
                       <button onClick={() => openEdit(item)} className="p-1.5 rounded-md text-mute hover:text-ink hover:bg-ink/5 transition-colors">
                         <Pencil size={14} />
                       </button>
@@ -202,7 +211,7 @@ export function CortesTab({ onNavigate }) {
         </div>
       )}
 
-      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editing ? 'Editar Corte' : 'Novo Corte'} size="lg">
+      <Modal isOpen={modalOpen} onClose={() => setModalOpen(false)} title={editing ? 'Editar Carrossel' : 'Novo Carrossel'} size="lg">
         <CortesForm initialData={editing} onSave={handleSave} onClose={() => setModalOpen(false)} />
       </Modal>
 
@@ -217,7 +226,7 @@ export function CortesTab({ onNavigate }) {
         isOpen={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
-        title="Excluir corte?"
+        title="Excluir carrossel?"
         message={`"${deleteTarget?.titulo}" será excluído permanentemente.`}
       />
     </div>
@@ -233,22 +242,22 @@ function CortesForm({ initialData, onSave, onClose }) {
   return (
     <form onSubmit={e => { e.preventDefault(); onSave(form) }} className="space-y-4">
       <Field label="Conteúdo Original">
-        <Input value={form.conteudoOriginal} onChange={e => set('conteudoOriginal', e.target.value)} placeholder="Nome do vídeo de onde o corte foi tirado" required />
+        <Input value={form.conteudoOriginal} onChange={e => set('conteudoOriginal', e.target.value)} placeholder="Nome do vídeo de onde o carrossel foi extraído" required />
       </Field>
-      <div className="grid grid-cols-2 gap-4">
-        <Field label="Título">
-          <Input value={form.titulo} onChange={e => set('titulo', e.target.value)} placeholder="Título do corte" required />
-        </Field>
-        <Field label="Título Melhor">
-          <Input value={form.tituloMelhor} onChange={e => set('tituloMelhor', e.target.value)} placeholder="Variação de teste A/B" />
-        </Field>
-      </div>
+      <Field label="Título">
+        <Input value={form.titulo} onChange={e => set('titulo', e.target.value)} placeholder="Título do carrossel" required />
+      </Field>
       <Field label="Observação">
         <Textarea value={form.observacao} onChange={e => set('observacao', e.target.value)} placeholder="Observações..." />
       </Field>
-      <Field label="Link Finalizado">
-        <Input value={form.linkFinalizado} onChange={e => set('linkFinalizado', e.target.value)} placeholder="https://..." />
-      </Field>
+      <div className="grid grid-cols-2 gap-4">
+        <Field label="Link do Drive">
+          <Input value={form.linkDrive} onChange={e => set('linkDrive', e.target.value)} placeholder="https://drive.google.com/..." />
+        </Field>
+        <Field label="Link Finalizado">
+          <Input value={form.linkFinalizado} onChange={e => set('linkFinalizado', e.target.value)} placeholder="https://..." />
+        </Field>
+      </div>
       <div className="flex items-center gap-6 pt-2">
         {STAGES.map(s => <Checkbox key={s} checked={form[s]} onChange={v => set(s, v)} label={STAGE_LABELS[s]} />)}
       </div>

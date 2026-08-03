@@ -1,5 +1,8 @@
 import { useState } from 'react'
 import { StoreProvider } from './store/useStore'
+import { AuthProvider, useAuth } from './store/AuthContext'
+import { LoginPage } from './pages/Auth/LoginPage'
+import SplashScreen from './components/SplashScreen'
 import { AppShell } from './components/layout/AppShell'
 import { VideosLongosTab } from './pages/Organization/VideosLongosTab'
 import { VideosCurtosTab } from './pages/Organization/VideosCurtosTab'
@@ -12,21 +15,24 @@ import { SettingsPage } from './pages/Settings/SettingsPage'
 import { TeamPage } from './pages/Team/TeamPage'
 import { ProducaoPage } from './pages/Producao/ProducaoPage'
 import { MineracaoPage } from './pages/Mineracao/MineracaoPage'
+import { CriativosPage } from './pages/Criativos/CriativosPage'
+import { UsersManagementPage } from './pages/Team/UsersManagementPage'
 import { ToastContainer } from './components/ui/Toast'
 import { Tabs } from './components/ui/Tabs'
 import { ImportSheetModal } from './components/ImportSheetModal'
 import { Button } from './components/ui/Button'
-import { FileSpreadsheet } from 'lucide-react'
+import { FileSpreadsheet, Eye } from 'lucide-react'
 
 const orgTabs = [
   { key: 'videos-longos', label: 'Vídeos Longos' },
   { key: 'videos-curtos', label: 'Vídeos Curtos' },
-  { key: 'cortes', label: 'Cortes' },
+  { key: 'cortes', label: 'Carrossel' },
   { key: 'frases', label: 'Frases' },
 ]
 
 function OrganizationPage({ activeSubTab, onNavigate }) {
   const [sheetModalOpen, setSheetModalOpen] = useState(false)
+  const { canEdit, isVisualizador } = useAuth()
 
   const pageMap = {
     'videos-longos': <VideosLongosTab onNavigate={onNavigate} />,
@@ -41,9 +47,15 @@ function OrganizationPage({ activeSubTab, onNavigate }) {
           <h1 className="text-heading-lg text-ink">{pageTitles[activeSubTab] || 'Organização'}</h1>
           <p className="text-sm text-mute mt-1">{pageDescriptions[activeSubTab]}</p>
         </div>
-        <Button variant="secondary" size="sm" onClick={() => setSheetModalOpen(true)} icon={<FileSpreadsheet size={16} />}>
-          Importar Sheets
-        </Button>
+        {canEdit ? (
+          <Button variant="secondary" size="sm" onClick={() => setSheetModalOpen(true)} icon={<FileSpreadsheet size={16} />}>
+            Importar Sheets
+          </Button>
+        ) : (
+          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs font-semibold border border-amber-500/20">
+            <Eye size={14} /> Modo Leitura (Visualizador)
+          </div>
+        )}
       </div>
       <div className="mt-4">
         <Tabs tabs={orgTabs} active={activeSubTab} onChange={onNavigate} />
@@ -51,7 +63,7 @@ function OrganizationPage({ activeSubTab, onNavigate }) {
       <div className="mt-6">
         {pageMap[activeSubTab] || <VideosLongosTab onNavigate={onNavigate} />}
       </div>
-      <ImportSheetModal isOpen={sheetModalOpen} onClose={() => setSheetModalOpen(false)} />
+      {canEdit && <ImportSheetModal isOpen={sheetModalOpen} onClose={() => setSheetModalOpen(false)} />}
     </>
   )
 }
@@ -59,35 +71,58 @@ function OrganizationPage({ activeSubTab, onNavigate }) {
 const pageTitles = {
   'videos-longos': 'Vídeos Longos',
   'videos-curtos': 'Vídeos Curtos',
-  'cortes': 'Cortes',
+  'cortes': 'Carrossel',
   'frases': 'Frases',
 }
 
 const pageDescriptions = {
   'videos-longos': 'Gerencie seus vídeos longos do YouTube',
   'videos-curtos': 'Acompanhe Reels, TikTok e Shorts',
-  'cortes': 'Organize cortes dos vídeos longos',
+  'cortes': 'Crie e gerencie carrosséis para o Instagram',
   'frases': 'Métricas de performance das suas frases',
 }
 
-export default function App() {
-  const [activePage, setActivePage] = useState('videos-longos')
+function MainAppContent() {
+  const { isAuthenticated, isAdmin } = useAuth()
+  const [activePage, setActivePage] = useState('criativos')
+  const [splashDone, setSplashDone] = useState(false)
+
+  if (!isAuthenticated) {
+    return <LoginPage />
+  }
 
   const isOrgPage = orgTabs.some(t => t.key === activePage)
 
   return (
-    <StoreProvider>
-      <AppShell activePage={activePage} onNavigate={setActivePage}>
-        {isOrgPage && <OrganizationPage activeSubTab={activePage} onNavigate={setActivePage} />}
-        {activePage === 'producao' && <ProducaoPage onNavigate={setActivePage} />}
-        {activePage === 'mineracao' && <MineracaoPage />}
-        {activePage === 'calendario' && <CalendarPage />}
-        {activePage === 'dashboard' && <DashboardPage />}
-        {activePage === 'analytics' && <AnalyticsPage />}
-        {activePage === 'equipe' && <TeamPage />}
-        {activePage === 'settings' && <SettingsPage />}
-      </AppShell>
-      <ToastContainer />
-    </StoreProvider>
+    <>
+      {!splashDone && <SplashScreen onFinish={() => setSplashDone(true)} />}
+      {splashDone && (
+        <>
+          <AppShell activePage={activePage} onNavigate={setActivePage}>
+            {isOrgPage && <OrganizationPage activeSubTab={activePage} onNavigate={setActivePage} />}
+            {activePage === 'criativos' && <CriativosPage />}
+            {activePage === 'usuarios' && isAdmin && <UsersManagementPage />}
+            {activePage === 'producao' && <ProducaoPage onNavigate={setActivePage} />}
+            {activePage === 'mineracao' && <MineracaoPage />}
+            {activePage === 'calendario' && <CalendarPage />}
+            {activePage === 'dashboard' && <DashboardPage />}
+            {activePage === 'analytics' && <AnalyticsPage />}
+            {activePage === 'equipe' && <TeamPage />}
+            {activePage === 'settings' && <SettingsPage />}
+          </AppShell>
+          <ToastContainer />
+        </>
+      )}
+    </>
+  )
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <StoreProvider>
+        <MainAppContent />
+      </StoreProvider>
+    </AuthProvider>
   )
 }
