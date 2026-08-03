@@ -1,6 +1,10 @@
 {
   "framework": "vite",
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
-  "installCommand": "npm install"
+  "buildCommand": "npm --prefix content-hub run build",
+  "outputDirectory": "content-hub/dist",
+  "installCommand": "npm --prefix content-hub install",
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/content-hub/api" },
+    { "source": "/(.*)", "destination": "/content-hub/index.html" }
+  ]
 }

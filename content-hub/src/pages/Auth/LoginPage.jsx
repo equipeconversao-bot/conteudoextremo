@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Logo } from '../../components/ui/Logo'
+import { Button } from '../../components/ui/Button'
 import { useAuth } from '../../store/AuthContext'
 import { Shield, Lock, Mail, User, Clock, AlertCircle, CheckCircle2, ArrowRight, KeyRound } from 'lucide-react'
 
@@ -39,7 +40,7 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-canvas flex flex-col items-center justify-center p-4">
+    <div className="ds-app min-h-screen bg-canvas flex flex-col items-center justify-center p-4 antialiased">
       
       {/* Container */}
       <div className="w-full max-w-md space-y-6">
@@ -178,19 +179,16 @@ export function LoginPage() {
               </div>
 
               <div className="pt-2">
-                <button
+                <Button
                   type="submit"
+                  variant="shiny"
+                  size="md"
                   disabled={loading}
-                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-brand-gradient text-white py-3 text-xs font-bold hover:opacity-90 transition-opacity disabled:opacity-50 shadow-soft"
+                  className="w-full text-xs font-bold"
+                  icon={<ArrowRight size={16} />}
                 >
-                  {loading ? (
-                    'Processando...'
-                  ) : activeTab === 'login' ? (
-                    <>Entrar <ArrowRight size={16} /></>
-                  ) : (
-                    <>Cadastrar Conta <ArrowRight size={16} /></>
-                  )}
-                </button>
+                  {loading ? 'Processando...' : activeTab === 'login' ? 'Entrar' : 'Cadastrar Conta'}
+                </Button>
               </div>
 
             </form>

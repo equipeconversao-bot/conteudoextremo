@@ -5,6 +5,7 @@ import {
   Copy, Check, Eye
 } from 'lucide-react'
 import { useAuth } from '../../store/AuthContext'
+import { useSpotlight } from '../../lib/useSpotlight'
 import { initialCriativos } from './mockData'
 import { ImportCriativosSheetModal } from '../../components/ImportCriativosSheetModal'
 import { Button } from '../../components/ui/Button'

@@ -1,38 +1,66 @@
+import { forwardRef } from 'react'
 import { cn } from '../../lib/cn'
+
+/**
+ * Button — pílula do design system da Conversão Extrema.
+ * Variantes: shiny | shiny-brand | primary | secondary | ghost | brand
+ */
 
 const base =
   'group relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-full font-medium leading-none tracking-tight whitespace-nowrap select-none transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald/40 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50'
 
 const sizes = {
   xs: 'px-3 py-1.5 text-xs',
-  sm: 'px-4 py-2 text-sm',
+  sm: 'px-4 py-2 text-xs',
   md: 'px-6 py-3 text-sm',
   lg: 'px-8 py-4 text-base',
+  field: 'h-[var(--ds-input-height)] px-4 text-xs',
 }
 
 const variants = {
-  primary:
-    'bg-inverse text-on-inverse hover:opacity-90 shadow-sm',
+  shiny: 'shiny-cta hover:-translate-y-0.5 transform-gpu',
+  'shiny-brand': 'shiny-brand hover:-translate-y-0.5 transform-gpu',
+  primary: 'shiny-cta hover:-translate-y-0.5 transform-gpu text-white',
+  brand: 'shiny-brand hover:-translate-y-0.5 transform-gpu text-white',
   secondary:
-    'bg-surface text-ink border border-hairline hover:bg-elevated shadow-xs',
-  ghost:
-    'bg-transparent text-body hover:bg-ink/5 hover:text-ink',
-  danger:
-    'bg-danger text-white hover:bg-red-600 shadow-sm',
-  brand:
-    'bg-brand-gradient text-white hover:opacity-90 shadow-emerald',
+    'ds-btn-secondary bg-surface text-ink border border-hairline hover:bg-elevated hover:-translate-y-0.5 transform-gpu shadow-xs',
+  ghost: 'bg-transparent text-ink hover:bg-ink/10',
+  danger: 'bg-danger text-white hover:bg-red-600 shadow-sm',
 }
 
-export function Button({ variant = 'primary', size = 'md', className, children, icon, ...props }) {
-  return (
-    <button
-      className={cn(base, variants[variant], sizes[size], className)}
-      {...props}
-    >
+export const Button = forwardRef(function Button(
+  { as: Tag = 'button', variant = 'primary', size = 'sm', className, children, icon, ...props },
+  ref,
+) {
+  const isShiny = variant === 'shiny' || variant === 'shiny-brand' || variant === 'primary' || variant === 'brand'
+
+  const content = (
+    <>
       {children}
       {icon && (
-        <span className="ml-0.5 transition-transform group-hover:translate-x-0.5">{icon}</span>
+        <span className="ml-1 transition-transform group-hover:translate-x-0.5">{icon}</span>
       )}
-    </button>
+    </>
+  )
+
+  return (
+    <Tag ref={ref} className={cn(base, variants[variant] || variants.primary, sizes[size] || sizes.sm, className)} {...props}>
+      {isShiny ? (
+        <>
+          <span className="shiny-dots" aria-hidden="true" />
+          <span className="shiny-cta-content">{content}</span>
+        </>
+      ) : (
+        content
+      )}
+    </Tag>
+  )
+})
+
+export function ButtonIconBadge({ as: Tag = 'button', className, children, icon, ...props }) {
+  return (
+    <Button as={Tag} variant="shiny" className={className} icon={icon} {...props}>
+      {children}
+    </Button>
   )
 }

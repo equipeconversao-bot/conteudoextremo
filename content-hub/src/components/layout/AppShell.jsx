@@ -5,7 +5,7 @@ export function AppShell({ activePage, onNavigate, children }) {
   const [collapsed, setCollapsed] = useState(false)
 
   return (
-    <div className="flex h-screen overflow-hidden bg-canvas">
+    <div className="ds-app flex h-screen overflow-hidden bg-canvas text-body antialiased">
       <Sidebar
         activePage={activePage}
         onNavigate={onNavigate}
