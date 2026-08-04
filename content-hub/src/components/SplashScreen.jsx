@@ -11,7 +11,7 @@ export default function SplashScreen({ onFinish }) {
     drawProgress: 0,
     fillOpacity: 0,
     strokeOpacity: 1,
-    logoScale: 0.8,
+    logoScale: 0.85,
     opacity: 1,
   })
   const startRef = useRef(null)
@@ -25,9 +25,9 @@ export default function SplashScreen({ onFinish }) {
   }, [])
 
   useEffect(() => {
-    const drawMs = 1100
-    const fillMs = 350
-    const zoomMs = 700
+    const drawMs = 1000
+    const fillMs = 300
+    const zoomMs = 600
     const totalMs = drawMs + fillMs + zoomMs
     let raf
 
@@ -36,6 +36,7 @@ export default function SplashScreen({ onFinish }) {
       const elapsed = now - startRef.current
 
       const drawP = Math.min(elapsed / drawMs, 1)
+      // Smooth cubic-bezier style easing for stroke draw
       const drawProgress = 1 - Math.pow(1 - drawP, 3)
 
       let fillOpacity = 0
@@ -47,11 +48,11 @@ export default function SplashScreen({ onFinish }) {
       }
 
       const zoomP = Math.min(elapsed / zoomMs, 1)
-      const logoScale = lerp(0.8, 1.1, 1 - Math.pow(1 - zoomP, 2.5))
+      const logoScale = lerp(0.85, 1.0, 1 - Math.pow(1 - zoomP, 2))
 
-      const fadeStart = totalMs - 300
+      const fadeStart = totalMs - 250
       const opacity = elapsed > fadeStart
-        ? lerp(1, 0, (elapsed - fadeStart) / 500)
+        ? lerp(1, 0, (elapsed - fadeStart) / 400)
         : 1
 
       setStyle({ drawProgress, fillOpacity, strokeOpacity, logoScale, opacity })
@@ -80,7 +81,7 @@ export default function SplashScreen({ onFinish }) {
         justifyContent: 'center',
         overflow: 'hidden',
         opacity: style.opacity,
-        transition: 'opacity 0.3s ease',
+        transition: 'opacity 0.25s ease',
       }}
     >
       <div
@@ -89,19 +90,20 @@ export default function SplashScreen({ onFinish }) {
           willChange: 'transform',
         }}
       >
-        <svg viewBox="0 0 85 85" width={140} height={140}>
+        <svg viewBox="0 0 85 85" width={72} height={72}>
           <path
             ref={pathRef}
             d={LOGO_PATH}
             fill="#10b981"
             fillOpacity={style.fillOpacity}
             stroke="#10b981"
-            strokeWidth={1.2}
+            strokeWidth={0.5}
             strokeOpacity={style.strokeOpacity}
             strokeDasharray={pathLen || 1000}
             strokeDashoffset={pathLen ? pathLen * (1 - style.drawProgress) : 1000}
             strokeLinecap="round"
             strokeLinejoin="round"
+            strokeMiterlimit={10}
           />
         </svg>
       </div>
