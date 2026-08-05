@@ -6,7 +6,6 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../../store/AuthContext'
 import { useSpotlight } from '../../lib/useSpotlight'
-import { initialCriativos } from './mockData'
 import { ImportCriativosSheetModal } from '../../components/ImportCriativosSheetModal'
 import { Button } from '../../components/ui/Button'
 import { exportToCSV } from '../../store/storage'
@@ -30,26 +29,9 @@ export function CriativosPage() {
     let mounted = true
     ;(async () => {
       const items = await loadCollection('criativos')
-      if (items && items.length > 0) {
-        if (mounted) {
-          setCriativos(items)
-          setLoaded(true)
-        }
-        return
-      }
-
-      // One-time migration: push legacy localStorage data to Supabase
-      const legacyKey = 'content_hub_criativos_data'
-      const legacyRaw = localStorage.getItem(legacyKey)
-      const legacyItems = legacyRaw ? JSON.parse(legacyRaw) : []
-
       if (mounted) {
-        setCriativos(legacyItems.length > 0 ? legacyItems : initialCriativos)
+        setCriativos(items || [])
         setLoaded(true)
-      }
-      if (legacyItems.length > 0) {
-        await replaceCollection('criativos', legacyItems)
-        localStorage.removeItem(legacyKey)
       }
     })()
     return () => { mounted = false }
