@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import {
   Search, Filter, Plus, FileSpreadsheet, Download, ExternalLink,
   CheckCircle2, Clock, PlayCircle, Users, Trash2, Edit3, Folder, FileVideo,
@@ -10,71 +10,66 @@ import { initialCriativos } from './mockData'
 import { ImportCriativosSheetModal } from '../../components/ImportCriativosSheetModal'
 import { Button } from '../../components/ui/Button'
 import { exportToCSV } from '../../store/storage'
-
-const STORAGE_KEY = 'content_hub_criativos_data'
+import {
+  loadCollection,
+  addItem as addToSupabase,
+  updateItem as updateInSupabase,
+  deleteItem as deleteFromSupabase,
+  replaceCollection,
+} from '../../lib/supabase'
 
 export function CriativosPage() {
   const { canEdit, isVisualizador } = useAuth()
 
-  // Load state from localStorage or fallback to empty array
-  const [criativos, setCriativos] = useState(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY)
-      if (saved) return JSON.parse(saved)
-    } catch (e) {
-      console.error('Error loading criativos from storage', e)
-    }
-    return initialCriativos
-  })
+  // Load state from Supabase (single source of truth)
+  const [criativos, setCriativos] = useState([])
+  const [loaded, setLoaded] = useState(false)
+  const dirtyRef = useRef(false)
 
-  // Save changes to localStorage & Cloud API
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(criativos))
-      if (criativos && criativos.length > 0) {
-        fetch('/api/data', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ criativos }),
-        }).catch(() => {})
-      }
-    } catch (e) {
-      console.error('Error saving criativos to storage', e)
-    }
-  }, [criativos])
-
-  // Cloud Sync: push local dataset to cloud if cloud is empty, else sync from cloud
-  useEffect(() => {
-    async function syncFromCloud() {
-      try {
-        const localSaved = localStorage.getItem(STORAGE_KEY)
-        const localItems = localSaved ? JSON.parse(localSaved) : []
-
-        const res = await fetch('/api/data')
-        if (res.ok) {
-          const json = await res.json()
-          const cloudItems = json?.data?.criativos || []
-
-          if (cloudItems.length > 0) {
-            const cloudJson = JSON.stringify(cloudItems)
-            if (cloudJson !== localSaved) {
-              setCriativos(cloudItems)
-              localStorage.setItem(STORAGE_KEY, cloudJson)
-            }
-          } else if (localItems.length > 0) {
-            fetch('/api/data', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ criativos: localItems }),
-            }).catch(() => {})
-          }
+    let mounted = true
+    ;(async () => {
+      const items = await loadCollection('criativos')
+      if (items && items.length > 0) {
+        if (mounted) {
+          setCriativos(items)
+          setLoaded(true)
         }
-      } catch (err) {}
-    }
-    syncFromCloud()
-    const interval = setInterval(syncFromCloud, 4000)
-    return () => clearInterval(interval)
+        return
+      }
+
+      // One-time migration: push legacy localStorage data to Supabase
+      const legacyKey = 'content_hub_criativos_data'
+      const legacyRaw = localStorage.getItem(legacyKey)
+      const legacyItems = legacyRaw ? JSON.parse(legacyRaw) : []
+
+      if (mounted) {
+        setCriativos(legacyItems.length > 0 ? legacyItems : initialCriativos)
+        setLoaded(true)
+      }
+      if (legacyItems.length > 0) {
+        await replaceCollection('criativos', legacyItems)
+        localStorage.removeItem(legacyKey)
+      }
+    })()
+    return () => { mounted = false }
   }, [])
+
+  // Real-time sync across devices (skips while a local change is pending)
+  useEffect(() => {
+    if (!loaded) return
+    const interval = setInterval(async () => {
+      if (dirtyRef.current) return
+      const cloud = await loadCollection('criativos')
+      setCriativos(prev => {
+        const cloudJson = JSON.stringify(cloud)
+        const localJson = JSON.stringify(prev)
+        if (cloudJson !== localJson && cloud && cloud.length > 0) return cloud
+        return prev
+      })
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [loaded])
 
   // Filters & Search
   const [searchTerm, setSearchTerm] = useState('')
@@ -139,31 +134,41 @@ export function CriativosPage() {
 
   // Operations
   const handleImport = (newItems, mode) => {
+    dirtyRef.current = true
     if (mode === 'replace') {
       setCriativos(newItems)
+      replaceCollection('criativos', newItems).finally(() => { dirtyRef.current = false })
     } else {
       setCriativos(prev => [...newItems, ...prev])
+      Promise.all(newItems.map(item => addToSupabase('criativos', item))).finally(() => { dirtyRef.current = false })
     }
   }
 
   const handleInlineStatusChange = (id, newStatus) => {
+    dirtyRef.current = true
     setCriativos(prev => prev.map(c => c.id === id ? { ...c, status: newStatus } : c))
+    updateInSupabase('criativos', id, { status: newStatus }).finally(() => { dirtyRef.current = false })
   }
 
   const handleInlineEditorChange = (id, newEditor) => {
+    dirtyRef.current = true
     setCriativos(prev => prev.map(c => c.id === id ? { ...c, editor: newEditor } : c))
+    updateInSupabase('criativos', id, { editor: newEditor }).finally(() => { dirtyRef.current = false })
   }
 
   const handleDelete = (id) => {
     if (window.confirm('Deseja realmente remover este criativo?')) {
+      dirtyRef.current = true
       setCriativos(prev => prev.filter(c => c.id !== id))
+      deleteFromSupabase('criativos', id).finally(() => { dirtyRef.current = false })
     }
   }
 
   const handleClearAll = () => {
     if (window.confirm('Tem certeza que deseja zerar e apagar todos os criativos da lista?')) {
+      dirtyRef.current = true
       setCriativos([])
-      localStorage.removeItem(STORAGE_KEY)
+      replaceCollection('criativos', []).finally(() => { dirtyRef.current = false })
     }
   }
 
@@ -199,8 +204,11 @@ export function CriativosPage() {
     e.preventDefault()
     if (!formData.nomeArquivo.trim()) return
 
+    dirtyRef.current = true
+
     if (editingItem) {
       setCriativos(prev => prev.map(c => c.id === editingItem.id ? { ...c, ...formData } : c))
+      updateInSupabase('criativos', editingItem.id, formData).finally(() => { dirtyRef.current = false })
     } else {
       const newItem = {
         id: `criativo-${Date.now()}`,
@@ -208,6 +216,7 @@ export function CriativosPage() {
         createdAt: new Date().toISOString(),
       }
       setCriativos(prev => [newItem, ...prev])
+      addToSupabase('criativos', newItem).finally(() => { dirtyRef.current = false })
     }
 
     setAddModalOpen(false)

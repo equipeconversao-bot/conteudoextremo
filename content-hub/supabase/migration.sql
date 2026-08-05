@@ -15,7 +15,7 @@ create table if not exists videos_longos (
   tema text default '',
   link_finalizado text default '',
   thumb text default '',
-  descricao text default ''pron
+  descricao text default ''
 );
 
 -- 2. Videos Curtos
@@ -95,6 +95,36 @@ create table if not exists producao (
   criado_em timestamptz default now()
 );
 
+-- 8. Criativos (tabela nova: gestão de criativos compartilhada)
+create table if not exists criativos (
+  id text primary key,
+  created_at timestamptz default now(),
+  status text default 'Fila',
+  editor text default '',
+  gravacao text default '',
+  tag text default '',
+  nome_arquivo text default '',
+  link_pasta_base text default '',
+  arquivo_finalizado text default ''
+);
+
+-- 9. Usuarios (tabela nova: autenticação e RBAC compartilhados)
+create table if not exists usuarios (
+  id text primary key,
+  created_at timestamptz default now(),
+  name text not null,
+  email text not null unique,
+  password text not null,
+  role text default 'visualizador',
+  status text default 'pending'
+);
+
+-- Seed: administradores nativos (iguais ao código)
+insert into usuarios (id, name, email, password, role, status, created_at) values
+  ('user-ruan-horacio', 'Ruan Horacio', 'ruanhoracio2@gmail.com', 'admin', 'admin', 'approved', '2026-08-01T00:00:00.000Z'),
+  ('user-augusto-canarin', 'Augusto Canarin', 'augustocanaring@gmail.com', 'admin', 'admin', 'approved', '2026-08-01T00:00:00.000Z')
+on conflict (email) do nothing;
+
 -- Enable Row Level Security (opcional — liberado para anon key por enquanto)
 alter table videos_longos enable row level security;
 alter table videos_curtos enable row level security;
@@ -103,6 +133,8 @@ alter table frases enable row level security;
 alter table equipe enable row level security;
 alter table calendario enable row level security;
 alter table producao enable row level security;
+alter table criativos enable row level security;
+alter table usuarios enable row level security;
 
 -- Policy: allow all operations for anon key (para time pequeno)
 -- Em produção, troque por autenticação real
@@ -113,3 +145,5 @@ create policy "Allow all for anon" on frases for all using (true) with check (tr
 create policy "Allow all for anon" on equipe for all using (true) with check (true);
 create policy "Allow all for anon" on calendario for all using (true) with check (true);
 create policy "Allow all for anon" on producao for all using (true) with check (true);
+create policy "Allow all for anon" on criativos for all using (true) with check (true);
+create policy "Allow all for anon" on usuarios for all using (true) with check (true);

@@ -3,7 +3,11 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || ''
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || ''
 
-export const supabase = createClient(supabaseUrl, supabaseKey)
+export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseKey)
+
+export const supabase = isSupabaseConfigured
+  ? createClient(supabaseUrl, supabaseKey)
+  : null
 
 const TABLES = {
   videosLongos: 'videos_longos',
@@ -13,11 +17,55 @@ const TABLES = {
   equipe: 'equipe',
   calendario: 'calendario',
   producao: 'producao',
+  criativos: 'criativos',
+  usuarios: 'usuarios',
+}
+
+// Tables whose id is defined by the client (text primary key)
+const CLIENT_ID_TABLES = new Set(['criativos', 'usuarios'])
+
+function camelToSnake(str) {
+  return str.replace(/[A-Z]/g, l => '_' + l.toLowerCase())
+}
+
+function snakeToCamel(str) {
+  return str.replace(/_([a-z])/g, (_, l) => l.toUpperCase())
+}
+
+function mapKeys(obj, fn) {
+  if (!obj || typeof obj !== 'object') return obj
+  if (Array.isArray(obj)) return obj.map(i => mapKeys(i, fn))
+  const result = {}
+  for (const [k, v] of Object.entries(obj)) {
+    result[fn(k)] = v
+  }
+  return result
+}
+
+export function itemToDb(item, name) {
+  const db = mapKeys(item, camelToSnake)
+  if (!CLIENT_ID_TABLES.has(name)) {
+    delete db.id
+  }
+  delete db.created_at
+  delete db.updated_at
+  return db
+}
+
+export function itemFromDb(row) {
+  const item = mapKeys(row, snakeToCamel)
+  if (item.createdAt) item.createdAt = new Date(item.createdAt).toISOString()
+  if (item.updatedAt) item.updatedAt = new Date(item.updatedAt).toISOString()
+  return item
+}
+
+function arrayFromDb(rows) {
+  return (rows || []).map(itemFromDb)
 }
 
 export async function loadCollection(name) {
   const table = TABLES[name]
-  if (!table) return null
+  if (!table || !supabase) return []
 
   const { data, error } = await supabase
     .from(table)
@@ -26,23 +74,25 @@ export async function loadCollection(name) {
 
   if (error) {
     console.error(`Error loading ${name}:`, error)
-    return null
+    return []
   }
 
-  return data || []
+  return arrayFromDb(data)
 }
 
 export async function addItem(name, item) {
   const table = TABLES[name]
-  if (!table) return null
+  if (!table || !supabase) return null
+
+  const dbItem = {
+    ...itemToDb(item, name),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }
 
   const { data, error } = await supabase
     .from(table)
-    .insert([{
-      ...item,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }])
+    .insert([dbItem])
     .select()
     .single()
 
@@ -51,16 +101,21 @@ export async function addItem(name, item) {
     return null
   }
 
-  return data
+  return itemFromDb(data)
 }
 
 export async function updateItem(name, id, updates) {
   const table = TABLES[name]
-  if (!table) return null
+  if (!table || !supabase) return null
+
+  const dbUpdates = {
+    ...itemToDb(updates, name),
+    updated_at: new Date().toISOString(),
+  }
 
   const { data, error } = await supabase
     .from(table)
-    .update({ ...updates, updated_at: new Date().toISOString() })
+    .update(dbUpdates)
     .eq('id', id)
     .select()
     .single()
@@ -70,12 +125,12 @@ export async function updateItem(name, id, updates) {
     return null
   }
 
-  return data
+  return itemFromDb(data)
 }
 
 export async function deleteItem(name, id) {
   const table = TABLES[name]
-  if (!table) return null
+  if (!table || !supabase) return false
 
   const { error } = await supabase
     .from(table)
@@ -84,8 +139,120 @@ export async function deleteItem(name, id) {
 
   if (error) {
     console.error(`Error deleting from ${name}:`, error)
-    return null
+    return false
   }
 
   return true
+}
+
+export async function replaceCollection(name, items) {
+  const table = TABLES[name]
+  if (!table || !supabase) return false
+
+  const { error: delError } = await supabase.from(table).delete().neq('id', '')
+  if (delError) {
+    console.error(`Error clearing ${name}:`, delError)
+    return false
+  }
+
+  if (!items || items.length === 0) return true
+
+  const rows = items.map(item => ({
+    ...itemToDb(item, name),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }))
+
+  const { error: insError } = await supabase.from(table).insert(rows)
+  if (insError) {
+    console.error(`Error replacing ${name}:`, insError)
+    return false
+  }
+
+  return true
+}
+
+// ---------- Usuarios (auth & RBAC) ----------
+
+export async function fetchUsers() {
+  if (!supabase) return null
+
+  const { data, error } = await supabase
+    .from('usuarios')
+    .select('*')
+    .order('created_at', { ascending: true })
+
+  if (error) {
+    console.error('Error loading usuarios:', error)
+    return null
+  }
+
+  return arrayFromDb(data)
+}
+
+export async function createUser(user) {
+  if (!supabase) return null
+
+  const dbUser = {
+    ...itemToDb(user, 'usuarios'),
+    created_at: new Date().toISOString(),
+  }
+
+  const { data, error } = await supabase
+    .from('usuarios')
+    .insert([dbUser])
+    .select()
+    .single()
+
+  if (error) {
+    console.error('Error creating user:', error)
+    return null
+  }
+
+  return itemFromDb(data)
+}
+
+export async function updateUser(id, updates) {
+  if (!supabase) return null
+
+  const { data, error } = await supabase
+    .from('usuarios')
+    .update(itemToDb(updates, 'usuarios'))
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) {
+    console.error('Error updating user:', error)
+    return null
+  }
+
+  return itemFromDb(data)
+}
+
+export async function deleteUser(id) {
+  if (!supabase) return false
+
+  const { error } = await supabase
+    .from('usuarios')
+    .delete()
+    .eq('id', id)
+
+  if (error) {
+    console.error('Error deleting user:', error)
+    return false
+  }
+
+  return true
+}
+
+export async function seedUsers(users) {
+  if (!supabase || !users || users.length === 0) return
+
+  const current = await fetchUsers()
+  if (current.length > 0) return
+
+  for (const user of users) {
+    await createUser(user)
+  }
 }

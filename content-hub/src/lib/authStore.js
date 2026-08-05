@@ -1,9 +1,18 @@
 /**
- * Better Auth Client & RBAC Manager for Content Hub
+ * Auth & RBAC Manager for Content Hub
  * Roles: 'admin' | 'editor' | 'visualizador'
  * Status: 'approved' | 'pending' | 'rejected'
- * Centralized API Integration with fallback to LocalStorage
+ * Users persisted in Supabase (single source of truth) with localStorage session cache.
  */
+
+import {
+  isSupabaseConfigured,
+  fetchUsers,
+  createUser,
+  updateUser,
+  deleteUser,
+  seedUsers,
+} from './supabase'
 
 const AUTH_USERS_KEY = 'content_hub_auth_users_v2'
 const AUTH_SESSION_KEY = 'content_hub_auth_session_v2'
@@ -69,115 +78,114 @@ export function saveLocalUsers(users) {
   }
 }
 
-async function apiFetch(endpoint, options = {}) {
-  try {
-    const res = await fetch(endpoint, {
-      headers: { 'Content-Type': 'application/json', ...options.headers },
-      ...options,
-    })
-    const data = await res.json()
-    if (!res.ok) {
-      throw new Error(data.error || 'Erro na requisição')
-    }
-    return data
-  } catch (err) {
-    console.warn(`API call to ${endpoint} failed, falling back:`, err.message)
-    throw err
+function normalizeUser(raw) {
+  return {
+    id: raw.id,
+    name: raw.name,
+    email: raw.email,
+    password: raw.password,
+    role: raw.role || 'visualizador',
+    status: raw.status || 'pending',
+    createdAt: raw.createdAt || new Date().toISOString(),
   }
 }
 
 export async function fetchUsersList() {
-  try {
-    const res = await apiFetch('/api/auth/users')
-    if (res && res.users) {
-      saveLocalUsers(res.users)
-      return res.users
+  if (isSupabaseConfigured) {
+    const users = await fetchUsers()
+    if (users) {
+      if (users.length === 0) {
+        await seedUsers(INITIAL_USERS)
+        const seeded = await fetchUsers()
+        if (seeded) {
+          saveLocalUsers(seeded)
+          return seeded
+        }
+      }
+      saveLocalUsers(users)
+      return users
     }
-  } catch (err) {
-    // Fallback to local
   }
+  // Fallback to local
   return getLocalUsers()
 }
 
 export async function registerUser({ name, email, password }) {
   const normalizedEmail = email.trim().toLowerCase()
 
-  try {
-    const res = await apiFetch('/api/auth/register', {
-      method: 'POST',
-      body: JSON.stringify({ name, email: normalizedEmail, password }),
-    })
-    
-    if (res && res.user) {
-      const currentList = getLocalUsers()
-      saveLocalUsers([...currentList.filter(u => u.id !== res.user.id), res.user])
-      if (res.user.status === 'approved') {
-        saveLocalSession(res.user)
-      }
-      return res.user
+  if (isSupabaseConfigured) {
+    const existing = await fetchUsers()
+    if (existing && existing.some(u => u.email.toLowerCase() === normalizedEmail)) {
+      throw new Error('Já existe uma conta cadastrada com este e-mail.')
     }
-  } catch (err) {
-    // Fallback local logic if API is unreachable
-    const users = getLocalUsers()
-    const existing = users.find(u => u.email.toLowerCase() === normalizedEmail)
-    if (existing) {
-      throw new Error(err.message || 'Já existe uma conta com este e-mail.')
-    }
-
-    const isFirstUser = users.length === 0
-    const role = isFirstUser ? 'admin' : 'visualizador'
-    const status = isFirstUser ? 'approved' : 'pending'
 
     const newUser = {
       id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
       name: name.trim(),
       email: normalizedEmail,
       password,
-      role,
-      status,
+      role: 'visualizador',
+      status: 'pending',
       createdAt: new Date().toISOString(),
     }
 
-    const updated = [...users, newUser]
-    saveLocalUsers(updated)
-    if (status === 'approved') saveLocalSession(newUser)
-    return newUser
+    const created = await createUser(newUser)
+    if (created) {
+      const currentList = getLocalUsers()
+      saveLocalUsers([...currentList.filter(u => u.id !== created.id), created])
+      return created
+    }
   }
+
+  // Fallback local logic if Supabase is unreachable
+  const users = getLocalUsers()
+  const existing = users.find(u => u.email.toLowerCase() === normalizedEmail)
+  if (existing) {
+    throw new Error('Já existe uma conta cadastrada com este e-mail.')
+  }
+
+  const localUser = {
+    id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+    name: name.trim(),
+    email: normalizedEmail,
+    password,
+    role: 'visualizador',
+    status: 'pending',
+    createdAt: new Date().toISOString(),
+  }
+
+  saveLocalUsers([...users, localUser])
+  return localUser
 }
 
 export async function loginUser({ email, password }) {
   const normalizedEmail = email.trim().toLowerCase()
 
-  try {
-    const res = await apiFetch('/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ email: normalizedEmail, password }),
-    })
+  let user = null
 
-    if (res) {
-      if (!res.isPending && res.user) {
-        saveLocalSession(res.user)
-      }
-      return res
-    }
-  } catch (err) {
-    // Fallback local check
-    const users = getLocalUsers()
-    const user = users.find(u => u.email.toLowerCase() === normalizedEmail)
-    if (!user || user.password !== password) {
-      throw new Error(err.message || 'E-mail ou senha incorretos.')
-    }
-
-    if (user.status === 'pending') {
-      return { isPending: true, user }
-    }
-    if (user.status === 'rejected') {
-      throw new Error('Sua solicitação de acesso foi recusada pelo administrador.')
-    }
-
-    saveLocalSession(user)
-    return { isPending: false, user }
+  if (isSupabaseConfigured) {
+    const users = await fetchUsers()
+    user = users ? users.find(u => u.email.toLowerCase() === normalizedEmail) : null
   }
+
+  if (!user) {
+    const users = getLocalUsers()
+    user = users.find(u => u.email.toLowerCase() === normalizedEmail) || null
+  }
+
+  if (!user || user.password !== password) {
+    throw new Error('E-mail ou senha incorretos.')
+  }
+
+  if (user.status === 'pending') {
+    return { isPending: true, user }
+  }
+  if (user.status === 'rejected') {
+    throw new Error('Sua solicitação de acesso foi recusada pelo administrador.')
+  }
+
+  saveLocalSession(user)
+  return { isPending: false, user }
 }
 
 export function logoutUser() {
@@ -185,16 +193,13 @@ export function logoutUser() {
 }
 
 export async function adminApproveUser(userId) {
-  try {
-    const res = await apiFetch('/api/auth/admin/approve', {
-      method: 'POST',
-      body: JSON.stringify({ userId }),
-    })
-    if (res && res.users) {
-      saveLocalUsers(res.users)
-      return res.users
+  if (isSupabaseConfigured) {
+    const updated = await updateUser(userId, { status: 'approved' })
+    if (updated) {
+      const list = await fetchUsersList()
+      return list
     }
-  } catch (err) {}
+  }
 
   const users = getLocalUsers()
   const updated = users.map(u => u.id === userId ? { ...u, status: 'approved' } : u)
@@ -203,16 +208,13 @@ export async function adminApproveUser(userId) {
 }
 
 export async function adminRejectUser(userId) {
-  try {
-    const res = await apiFetch('/api/auth/admin/reject', {
-      method: 'POST',
-      body: JSON.stringify({ userId }),
-    })
-    if (res && res.users) {
-      saveLocalUsers(res.users)
-      return res.users
+  if (isSupabaseConfigured) {
+    const updated = await updateUser(userId, { status: 'rejected' })
+    if (updated) {
+      const list = await fetchUsersList()
+      return list
     }
-  } catch (err) {}
+  }
 
   const users = getLocalUsers()
   const updated = users.map(u => u.id === userId ? { ...u, status: 'rejected' } : u)
@@ -221,16 +223,13 @@ export async function adminRejectUser(userId) {
 }
 
 export async function adminChangeRole(userId, newRole) {
-  try {
-    const res = await apiFetch('/api/auth/admin/role', {
-      method: 'POST',
-      body: JSON.stringify({ userId, newRole }),
-    })
-    if (res && res.users) {
-      saveLocalUsers(res.users)
-      return res.users
+  if (isSupabaseConfigured) {
+    const updated = await updateUser(userId, { role: newRole })
+    if (updated) {
+      const list = await fetchUsersList()
+      return list
     }
-  } catch (err) {}
+  }
 
   const users = getLocalUsers()
   const updated = users.map(u => u.id === userId ? { ...u, role: newRole } : u)
@@ -241,16 +240,23 @@ export async function adminChangeRole(userId, newRole) {
 export async function adminCreateUser({ name, email, password, role }) {
   const normalizedEmail = email.trim().toLowerCase()
 
-  try {
-    const res = await apiFetch('/api/auth/admin/create-user', {
-      method: 'POST',
-      body: JSON.stringify({ name, email: normalizedEmail, password, role }),
-    })
-    if (res && res.users) {
-      saveLocalUsers(res.users)
-      return res.user
+  if (isSupabaseConfigured) {
+    const newUser = {
+      id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      name: name.trim(),
+      email: normalizedEmail,
+      password,
+      role: role || 'editor',
+      status: 'approved',
+      createdAt: new Date().toISOString(),
     }
-  } catch (err) {}
+
+    const created = await createUser(newUser)
+    if (created) {
+      const list = await fetchUsersList()
+      return list.find(u => u.id === created.id)
+    }
+  }
 
   const users = getLocalUsers()
   const existing = users.find(u => u.email.toLowerCase() === normalizedEmail)
@@ -274,16 +280,13 @@ export async function adminCreateUser({ name, email, password, role }) {
 }
 
 export async function adminDeleteUser(userId) {
-  try {
-    const res = await apiFetch('/api/auth/admin/delete', {
-      method: 'POST',
-      body: JSON.stringify({ userId }),
-    })
-    if (res && res.users) {
-      saveLocalUsers(res.users)
-      return res.users
+  if (isSupabaseConfigured) {
+    const ok = await deleteUser(userId)
+    if (ok) {
+      const list = await fetchUsersList()
+      return list
     }
-  } catch (err) {}
+  }
 
   const users = getLocalUsers()
   const updated = users.filter(u => u.id !== userId)

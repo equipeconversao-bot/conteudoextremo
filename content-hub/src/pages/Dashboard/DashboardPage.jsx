@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from 'react'
 import { useStore } from '../../store/useStore'
 import { useSpotlight } from '../../lib/useSpotlight'
+import { loadCollection } from '../../lib/supabase'
 import { Button } from '../../components/ui/Button'
 import {
   Video, Film, LayoutGrid, Sparkles, MessageSquareQuote, Calendar,
@@ -8,50 +9,19 @@ import {
   Users, Layers, FileVideo, Filter, Search, ChevronRight, Folder, Eye, Check
 } from 'lucide-react'
 
-const CRIATIVOS_STORAGE_KEY = 'content_hub_criativos_data'
-
 export function DashboardPage({ onNavigate }) {
-  // Load Criativos from storage
-  const [criativos, setCriativos] = useState(() => {
-    try {
-      const saved = localStorage.getItem(CRIATIVOS_STORAGE_KEY)
-      if (saved) return JSON.parse(saved)
-    } catch (e) {
-      console.error('Error loading criativos for dashboard:', e)
-    }
-    return []
-  })
+  // Load Criativos from Supabase (single source of truth)
+  const [criativos, setCriativos] = useState([])
 
   useEffect(() => {
-    async function syncCloudData() {
-      try {
-        const localSaved = localStorage.getItem(CRIATIVOS_STORAGE_KEY)
-        const localItems = localSaved ? JSON.parse(localSaved) : []
-
-        const res = await fetch('/api/data')
-        if (res.ok) {
-          const json = await res.json()
-          const cloudItems = json?.data?.criativos || []
-
-          if (cloudItems.length > 0) {
-            const cloudJson = JSON.stringify(cloudItems)
-            if (cloudJson !== localSaved) {
-              setCriativos(cloudItems)
-              localStorage.setItem(CRIATIVOS_STORAGE_KEY, cloudJson)
-            }
-          } else if (localItems.length > 0) {
-            fetch('/api/data', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ criativos: localItems }),
-            }).catch(() => {})
-          }
-        }
-      } catch (e) {}
+    let mounted = true
+    async function loadCriativos() {
+      const items = await loadCollection('criativos')
+      if (mounted) setCriativos(items || [])
     }
-    syncCloudData()
-    const interval = setInterval(syncCloudData, 4000)
-    return () => clearInterval(interval)
+    loadCriativos()
+    const interval = setInterval(loadCriativos, 5000)
+    return () => { mounted = false; clearInterval(interval) }
   }, [])
 
   const state = useStore()

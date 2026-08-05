@@ -13,43 +13,6 @@ const TABLE_MAP = {
   producao: 'producao',
 }
 
-function camelToSnake(str) {
-  return str.replace(/[A-Z]/g, l => '_' + l.toLowerCase())
-}
-
-function snakeToCamel(str) {
-  return str.replace(/_([a-z])/g, (_, l) => l.toUpperCase())
-}
-
-function mapKeys(obj, fn) {
-  if (!obj || typeof obj !== 'object') return obj
-  if (Array.isArray(obj)) return obj.map(i => mapKeys(i, fn))
-  const result = {}
-  for (const [k, v] of Object.entries(obj)) {
-    result[fn(k)] = v
-  }
-  return result
-}
-
-function itemToDb(item) {
-  const db = mapKeys(item, camelToSnake)
-  delete db.id
-  delete db.created_at
-  delete db.updated_at
-  return db
-}
-
-function itemFromDb(row) {
-  const item = mapKeys(row, snakeToCamel)
-  if (item.createdAt) item.createdAt = new Date(item.createdAt).toISOString()
-  if (item.updatedAt) item.updatedAt = new Date(item.updatedAt).toISOString()
-  return item
-}
-
-function arrayFromDb(rows) {
-  return (rows || []).map(itemFromDb)
-}
-
 export function StoreProvider({ children }) {
   const [state, setState] = useState({
     videosLongos: [],
@@ -75,21 +38,8 @@ export function StoreProvider({ children }) {
 
         const newState = { loaded: true }
         collections.forEach((name, i) => {
-          newState[name] = arrayFromDb(results[i]) || []
+          newState[name] = results[i] || []
         })
-
-        // Fetch from global cloud API
-        const cloudRes = await fetch('/api/data').catch(() => null)
-        if (cloudRes && cloudRes.ok) {
-          const cloudData = await cloudRes.json()
-          if (cloudData?.data) {
-            collections.forEach(name => {
-              if (Array.isArray(cloudData.data[name]) && cloudData.data[name].length > 0) {
-                newState[name] = cloudData.data[name]
-              }
-            })
-          }
-        }
 
         setState(prev => ({ ...prev, ...newState }))
       } catch (err) {
@@ -100,30 +50,26 @@ export function StoreProvider({ children }) {
 
     loadAll()
 
-    // 4s polling for global real-time synchronization across all devices
+    // Polling for real-time synchronization across all devices
     const interval = setInterval(async () => {
+      if (!supabase) return
       try {
-        const res = await fetch('/api/data')
-        if (res.ok) {
-          const json = await res.json()
-          if (json?.data) {
-            setState(prev => {
-              let changed = false
-              const updated = { ...prev }
-              Object.keys(TABLE_MAP).forEach(name => {
-                if (Array.isArray(json.data[name]) && json.data[name].length > 0) {
-                  const cloudJson = JSON.stringify(json.data[name])
-                  const localJson = JSON.stringify(prev[name])
-                  if (cloudJson !== localJson) {
-                    updated[name] = json.data[name]
-                    changed = true
-                  }
-                }
-              })
-              return changed ? updated : prev
-            })
-          }
-        }
+        const collections = Object.keys(TABLE_MAP)
+        const results = await Promise.all(collections.map(name => loadCollection(name)))
+        setState(prev => {
+          let changed = false
+          const updated = { ...prev }
+          collections.forEach((name, i) => {
+            const cloudItems = results[i] || []
+            const localJson = JSON.stringify(prev[name])
+            const cloudJson = JSON.stringify(cloudItems)
+            if (cloudJson !== localJson) {
+              updated[name] = cloudItems
+              changed = true
+            }
+          })
+          return changed ? updated : prev
+        })
       } catch (e) {}
     }, 4000)
 
@@ -133,39 +79,27 @@ export function StoreProvider({ children }) {
   const updateState = useCallback((name, updater) => {
     setState(prev => {
       const newItems = updater(prev[name])
-      const nextState = {
+      return {
         ...prev,
         [name]: newItems,
       }
-      try {
-        fetch('/api/data', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ [name]: newItems }),
-        }).catch(() => {})
-      } catch (e) {}
-      return nextState
     })
   }, [])
 
   const addItem = useCallback(async (name, item) => {
-    const dbItem = itemToDb(item)
-    const result = await addToSupabase(name, dbItem)
+    const result = await addToSupabase(name, item)
     if (result) {
-      const newItem = itemFromDb(result)
-      updateState(name, items => [newItem, ...items])
-      return newItem
+      updateState(name, items => [result, ...items])
+      return result
     }
     return null
   }, [updateState])
 
   const updateItem = useCallback(async (name, id, updates) => {
-    const dbUpdates = itemToDb(updates)
-    const result = await updateInSupabase(name, id, dbUpdates)
+    const result = await updateInSupabase(name, id, updates)
     if (result) {
-      const updated = itemFromDb(result)
-      updateState(name, items => items.map(i => i.id === id ? updated : i))
-      return updated
+      updateState(name, items => items.map(i => i.id === id ? result : i))
+      return result
     }
     return null
   }, [updateState])
@@ -212,14 +146,13 @@ export function useStore() {
 
 export function useCollection(name) {
   const ctx = useContext(StoreContext)
-  if (!ctx) return { items: [], addItem: () => {}, updateItem: () => {}, deleteItem: () => {}, toggleStage: () => {} }
 
-  const items = ctx.state?.[name] || []
+  const items = ctx?.state?.[name] || []
 
-  const add = useCallback((item) => ctx.addItem(name, item), [ctx, name])
-  const update = useCallback((id, updates) => ctx.updateItem(name, id, updates), [ctx, name])
-  const remove = useCallback((id) => ctx.deleteItem(name, id), [ctx, name])
-  const toggle = useCallback((id, stage, stages) => ctx.toggleStage(name, id, stage, stages), [ctx, name])
+  const add = useCallback((item) => ctx ? ctx.addItem(name, item) : Promise.resolve(null), [ctx, name])
+  const update = useCallback((id, updates) => ctx ? ctx.updateItem(name, id, updates) : Promise.resolve(null), [ctx, name])
+  const remove = useCallback((id) => ctx ? ctx.deleteItem(name, id) : Promise.resolve(false), [ctx, name])
+  const toggle = useCallback((id, stage, stages) => ctx ? ctx.toggleStage(name, id, stage, stages) : Promise.resolve(), [ctx, name])
 
   return { items, addItem: add, updateItem: update, deleteItem: remove, toggleStage: toggle }
 }
