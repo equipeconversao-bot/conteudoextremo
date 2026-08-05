@@ -6,15 +6,26 @@ export const authRouter = Router()
 
 const DATA_FILE = path.join('/tmp', 'content_hub_users_db.json')
 
-const DEFAULT_ADMIN = {
-  id: 'admin-master-ce',
-  name: 'Admin Conversão Extrema',
-  email: 'admin@conversaoextrema.com',
-  password: 'admin',
-  role: 'admin',
-  status: 'approved',
-  createdAt: '2026-08-01T00:00:00.000Z',
-}
+const INITIAL_USERS = [
+  {
+    id: 'user-ruan-horacio',
+    name: 'Ruan Horacio',
+    email: 'ruanhoracio2@gmail.com',
+    password: 'admin',
+    role: 'admin',
+    status: 'approved',
+    createdAt: '2026-08-01T00:00:00.000Z',
+  },
+  {
+    id: 'user-augusto-canarin',
+    name: 'Augusto Canarin',
+    email: 'augustocanaring@gmail.com',
+    password: 'admin',
+    role: 'admin',
+    status: 'approved',
+    createdAt: '2026-08-01T00:00:00.000Z',
+  },
+]
 
 function loadUsersServer() {
   try {
@@ -28,7 +39,7 @@ function loadUsersServer() {
   } catch (err) {
     console.error('Error reading server users file:', err)
   }
-  return [DEFAULT_ADMIN]
+  return INITIAL_USERS
 }
 
 function saveUsersServer(users) {
@@ -44,10 +55,6 @@ let memoryUsers = loadUsersServer()
 function getUsers() {
   if (!memoryUsers || memoryUsers.length === 0) {
     memoryUsers = loadUsersServer()
-  }
-  // Ensure default admin always exists
-  if (!memoryUsers.some(u => u.role === 'admin')) {
-    memoryUsers.unshift(DEFAULT_ADMIN)
   }
   return memoryUsers
 }

@@ -30,6 +30,27 @@ export function saveLocalSession(user) {
   }
 }
 
+export const INITIAL_USERS = [
+  {
+    id: 'user-ruan-horacio',
+    name: 'Ruan Horacio',
+    email: 'ruanhoracio2@gmail.com',
+    password: 'admin',
+    role: 'admin',
+    status: 'approved',
+    createdAt: '2026-08-01T00:00:00.000Z',
+  },
+  {
+    id: 'user-augusto-canarin',
+    name: 'Augusto Canarin',
+    email: 'augustocanaring@gmail.com',
+    password: 'admin',
+    role: 'admin',
+    status: 'approved',
+    createdAt: '2026-08-01T00:00:00.000Z',
+  },
+]
+
 export function getLocalUsers() {
   try {
     const data = localStorage.getItem(AUTH_USERS_KEY)
@@ -37,7 +58,7 @@ export function getLocalUsers() {
   } catch (e) {
     console.error('Error reading local users:', e)
   }
-  return []
+  return INITIAL_USERS
 }
 
 export function saveLocalUsers(users) {
