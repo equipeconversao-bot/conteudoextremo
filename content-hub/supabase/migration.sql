@@ -125,7 +125,7 @@ create table if not exists usuarios (
 
 -- Seed: administradores nativos (iguais ao código)
 insert into usuarios (id, name, email, password, role, status, created_at) values
-  ('user-ruan-horacio', 'Ruan Horacio', 'ruanhoracio2@gmail.com', 'admin', 'admin', 'approved', '2026-08-01T00:00:00.000Z'),
+  ('user-ruan-horacio', 'Ruan Horacio', 'ruuanhoraciio@gmail.com', 'admin', 'admin', 'approved', '2026-08-01T00:00:00.000Z'),
   ('user-augusto-canarin', 'Augusto Canarin', 'augustocanaring@gmail.com', 'admin', 'admin', 'approved', '2026-08-01T00:00:00.000Z')
 on conflict (email) do nothing;
 

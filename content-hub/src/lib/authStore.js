@@ -43,7 +43,7 @@ export const INITIAL_USERS = [
   {
     id: 'user-ruan-horacio',
     name: 'Ruan Horacio',
-    email: 'ruanhoracio2@gmail.com',
+    email: 'ruuanhoraciio@gmail.com',
     password: 'admin',
     role: 'admin',
     status: 'approved',
