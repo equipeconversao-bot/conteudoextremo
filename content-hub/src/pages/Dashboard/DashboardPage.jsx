@@ -5,7 +5,7 @@ import { Button } from '../../components/ui/Button'
 import {
   Video, Film, LayoutGrid, Sparkles, MessageSquareQuote, Calendar,
   Clock, CheckCircle2, AlertCircle, ArrowRight, ExternalLink,
-  Users, Layers, FileVideo, Filter, Search, ChevronRight, Folder, Eye
+  Users, Layers, FileVideo, Filter, Search, ChevronRight, Folder, Eye, Check
 } from 'lucide-react'
 
 const CRIATIVOS_STORAGE_KEY = 'content_hub_criativos_data'
@@ -32,17 +32,18 @@ export function DashboardPage({ onNavigate }) {
   const state = useStore()
 
   // Filters state
+  const [statusFilterTab, setStatusFilterTab] = useState('a-fazer') // 'a-fazer' | 'aprovados' | 'publicados' | 'todos'
   const [activeSectorTab, setActiveSectorTab] = useState('todos') // 'todos' | 'criativos' | 'longos' | 'curtos' | 'cortes'
   const [editorFilter, setEditorFilter] = useState('Todos')
   const [searchTerm, setSearchTerm] = useState('')
 
-  // Spotlight hooks for cards
+  // Spotlight hooks for KPI cards
   const kpiSpotlight1 = useSpotlight()
   const kpiSpotlight2 = useSpotlight()
   const kpiSpotlight3 = useSpotlight()
   const kpiSpotlight4 = useSpotlight()
 
-  // Calculate stats & pending items across ALL sectors
+  // Calculate stats & item list across ALL sectors with accurate statuses
   const dashboardData = useMemo(() => {
     const vl = state?.videosLongos || []
     const vc = state?.videosCurtos || []
@@ -50,93 +51,157 @@ export function DashboardPage({ onNavigate }) {
     const fr = state?.frases || []
     const cal = state?.calendario || []
 
-    // Sector 1: Criativos (não editados/finalizados)
-    const criativosAFazer = criativos.filter(c => c.status !== 'Finalizado')
+    // Map 1: Criativos de Tráfego
+    const criativosMapped = criativos.map(c => {
+      const isApproved = c.status === 'Aprovado'
+      const isFinished = c.status === 'Finalizado'
+      const isPending = !isApproved && !isFinished
 
-    // Sector 2: Vídeos Longos (não editados/gravados)
-    const vlAFazer = vl.filter(i => !i.editado || !i.publicado).map(i => ({
-      id: `vl-${i.id}`,
-      sector: 'Vídeos Longos',
-      sectorKey: 'longos',
-      icon: Video,
-      title: i.tema || i.titulo || 'Vídeo Longo sem título',
-      status: !i.gravado ? 'Não Gravado' : !i.editado ? 'Em Edição' : 'Fila',
-      editor: i.editor || i.ondeQuem || '—',
-      gravacao: i.ondeQuem || 'YouTube',
-      linkDrive: i.linkPasta || i.linkFinalizado || '',
-      origemTab: 'videos-longos',
-    }))
+      return {
+        id: `cria-${c.id}`,
+        sector: 'Criativos de Tráfego',
+        sectorKey: 'criativos',
+        icon: Sparkles,
+        title: c.nomeArquivo,
+        status: c.status || 'Fila',
+        isApproved,
+        isFinished,
+        isPending,
+        editor: c.editor || '—',
+        gravacao: c.gravacao || 'Tráfego',
+        tag: c.tag,
+        linkDrive: c.linkPastaBase || '',
+        origemTab: 'criativos',
+      }
+    })
 
-    // Sector 3: Vídeos Curtos / Reels / TikTok (não editados)
-    const vcAFazer = vc.filter(i => !i.editado || !i.publicado).map(i => ({
-      id: `vc-${i.id}`,
-      sector: 'Vídeos Curtos',
-      sectorKey: 'curtos',
-      icon: Film,
-      title: i.titulo || 'Vídeo Curto sem título',
-      status: !i.editado ? 'Em Edição' : 'Fila',
-      editor: i.editor || '—',
-      gravacao: i.plataforma || 'Reels / Shorts',
-      linkDrive: i.linkFinalizado || '',
-      origemTab: 'videos-curtos',
-    }))
+    // Map 2: Vídeos Longos (YouTube)
+    const vlMapped = vl.map(i => {
+      const isFinished = !!i.publicado
+      const isApproved = !isFinished && !!i.aprovado
+      const isPending = !isFinished && !isApproved
 
-    // Sector 4: Carrosséis / Cortes (não editados)
-    const coAFazer = co.filter(i => !i.editado || !i.aprovado).map(i => ({
-      id: `co-${i.id}`,
-      sector: 'Carrossel / Cortes',
-      sectorKey: 'cortes',
-      icon: LayoutGrid,
-      title: i.titulo || 'Carrossel sem título',
-      status: !i.editado ? 'Em Edição' : 'Fila',
-      editor: i.editor || '—',
-      gravacao: 'Instagram',
-      linkDrive: i.linkFinalizado || '',
-      origemTab: 'cortes',
-    }))
+      const status = isFinished
+        ? 'Publicado'
+        : isApproved
+        ? 'Aprovado'
+        : i.editado
+        ? 'Editado (Em Análise)'
+        : i.gravado
+        ? 'Gravado (Em Edição)'
+        : 'A Gravar'
 
-    // Formatted Criativos list for table
-    const criativosFormatted = criativosAFazer.map(c => ({
-      id: c.id,
-      sector: 'Criativos de Tráfego',
-      sectorKey: 'criativos',
-      icon: Sparkles,
-      title: c.nomeArquivo,
-      status: c.status || 'Fila',
-      editor: c.editor || '—',
-      gravacao: c.gravacao || 'Tráfego',
-      tag: c.tag,
-      linkDrive: c.linkPastaBase || '',
-      origemTab: 'criativos',
-    }))
+      return {
+        id: `vl-${i.id}`,
+        sector: 'Vídeos Longos',
+        sectorKey: 'longos',
+        icon: Video,
+        title: i.tema || i.titulo || 'Vídeo Longo sem título',
+        status,
+        isApproved,
+        isFinished,
+        isPending,
+        editor: i.editor || i.ondeQuem || '—',
+        gravacao: i.ondeQuem || 'YouTube',
+        linkDrive: i.linkPasta || i.linkFinalizado || '',
+        origemTab: 'videos-longos',
+      }
+    })
 
-    // Combined Pending List
-    const allPendingList = [
-      ...criativosFormatted,
-      ...vlAFazer,
-      ...vcAFazer,
-      ...coAFazer,
+    // Map 3: Vídeos Curtos (Reels / TikTok / Shorts)
+    const vcMapped = vc.map(i => {
+      const isFinished = !!i.publicado
+      const isApproved = !isFinished && !!i.aprovado
+      const isPending = !isFinished && !isApproved
+
+      const status = isFinished
+        ? 'Publicado'
+        : isApproved
+        ? 'Aprovado'
+        : i.editado
+        ? 'Editado'
+        : 'Em Edição'
+
+      return {
+        id: `vc-${i.id}`,
+        sector: 'Vídeos Curtos',
+        sectorKey: 'curtos',
+        icon: Film,
+        title: i.titulo || 'Vídeo Curto sem título',
+        status,
+        isApproved,
+        isFinished,
+        isPending,
+        editor: i.editor || '—',
+        gravacao: i.plataforma || 'Reels / Shorts',
+        linkDrive: i.linkFinalizado || '',
+        origemTab: 'videos-curtos',
+      }
+    })
+
+    // Map 4: Carrossel / Cortes
+    const coMapped = co.map(i => {
+      const isFinished = !!i.publicado
+      const isApproved = !isFinished && !!i.aprovado
+      const isPending = !isFinished && !isApproved
+
+      const status = isFinished
+        ? 'Publicado'
+        : isApproved
+        ? 'Aprovado'
+        : i.editado
+        ? 'Editado'
+        : 'Fila'
+
+      return {
+        id: `co-${i.id}`,
+        sector: 'Carrossel / Cortes',
+        sectorKey: 'cortes',
+        icon: LayoutGrid,
+        title: i.titulo || 'Carrossel sem título',
+        status,
+        isApproved,
+        isFinished,
+        isPending,
+        editor: i.editor || '—',
+        gravacao: 'Instagram',
+        linkDrive: i.linkFinalizado || '',
+        origemTab: 'cortes',
+      }
+    })
+
+    // Combined List
+    const allItemsList = [
+      ...criativosMapped,
+      ...vlMapped,
+      ...vcMapped,
+      ...coMapped,
     ]
 
-    // Total counts
-    const totalPendingCount = allPendingList.length
-    const criativosPendingCount = criativosAFazer.length
-    const vlPendingCount = vlAFazer.length
-    const vcPendingCount = vcAFazer.length
-    const coPendingCount = coAFazer.length
+    // Summary Statistics
+    const totalCount = allItemsList.length
+    const pendingItems = allItemsList.filter(i => i.isPending)
+    const approvedItems = allItemsList.filter(i => i.isApproved)
+    const finishedItems = allItemsList.filter(i => i.isFinished)
 
-    // Completion percentage calculation
-    const totalItemsCount = criativos.length + vl.length + vc.length + co.length
-    const totalFinishedCount = (criativos.length - criativosPendingCount) +
-      vl.filter(i => i.editado && i.publicado).length +
-      vc.filter(i => i.editado && i.publicado).length +
-      co.filter(i => i.editado && i.aprovado).length
+    const pendingCount = pendingItems.length
+    const approvedCount = approvedItems.length
+    const finishedCount = finishedItems.length
 
-    const completionRate = totalItemsCount > 0 ? Math.round((totalFinishedCount / totalItemsCount) * 100) : 0
+    // Criativos específicos
+    const criativosPending = criativosMapped.filter(i => i.isPending).length
+    const criativosApproved = criativosMapped.filter(i => i.isApproved).length
 
-    // Editors workload map
+    // Longos específicos
+    const vlPending = vlMapped.filter(i => i.isPending).length
+    const vlApproved = vlMapped.filter(i => i.isApproved).length
+
+    // Completion percentage
+    const completionRate = totalCount > 0 ? Math.round(((approvedCount + finishedCount) / totalCount) * 100) : 0
+
+    // Editors workload
     const editorsWorkload = {}
-    allPendingList.forEach(item => {
+    pendingItems.forEach(item => {
       const ed = item.editor && item.editor !== '—' ? item.editor : 'Sem Editor'
       if (!editorsWorkload[ed]) editorsWorkload[ed] = 0
       editorsWorkload[ed]++
@@ -149,31 +214,53 @@ export function DashboardPage({ onNavigate }) {
       .slice(0, 4)
 
     return {
-      allPendingList,
-      totalPendingCount,
-      criativosPendingCount,
-      vlPendingCount,
-      vcPendingCount,
-      coPendingCount,
+      allItemsList,
+      pendingItems,
+      approvedItems,
+      finishedItems,
+      totalCount,
+      pendingCount,
+      approvedCount,
+      finishedCount,
+      criativosPending,
+      criativosApproved,
+      vlPending,
+      vlApproved,
       completionRate,
       editorsWorkload: Object.entries(editorsWorkload).map(([name, count]) => ({ name, count })),
       upcomingCalendar,
     }
   }, [criativos, state])
 
-  // Filtered List
+  // Filtered List based on status tab, sector tab, editor, and search term
   const filteredList = useMemo(() => {
-    return dashboardData.allPendingList.filter(item => {
-      const matchesTab = activeSectorTab === 'todos' || item.sectorKey === activeSectorTab
-      const matchesEditor = editorFilter === 'Todos' ||
-        (editorFilter === 'Sem Editor' ? (item.editor === '—' || !item.editor) : item.editor === editorFilter)
+    return dashboardData.allItemsList.filter(item => {
+      // Status Filter Tab
+      if (statusFilterTab === 'a-fazer' && !item.isPending) return false
+      if (statusFilterTab === 'aprovados' && !item.isApproved) return false
+      if (statusFilterTab === 'publicados' && !item.isFinished) return false
 
-      const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.gravacao.toLowerCase().includes(searchTerm.toLowerCase())
+      // Sector Tab
+      if (activeSectorTab !== 'todos' && item.sectorKey !== activeSectorTab) return false
 
-      return matchesTab && matchesEditor && matchesSearch
+      // Editor Filter
+      if (editorFilter !== 'Todos') {
+        if (editorFilter === 'Sem Editor' && item.editor !== '—' && item.editor) return false
+        if (editorFilter !== 'Sem Editor' && item.editor !== editorFilter) return false
+      }
+
+      // Search Term
+      if (searchTerm) {
+        const term = searchTerm.toLowerCase()
+        const matchTitle = item.title.toLowerCase().includes(term)
+        const matchGravacao = item.gravacao.toLowerCase().includes(term)
+        const matchEditor = item.editor.toLowerCase().includes(term)
+        if (!matchTitle && !matchGravacao && !matchEditor) return false
+      }
+
+      return true
     })
-  }, [dashboardData.allPendingList, activeSectorTab, editorFilter, searchTerm])
+  }, [dashboardData.allItemsList, statusFilterTab, activeSectorTab, editorFilter, searchTerm])
 
   return (
     <div className="space-y-6">
@@ -183,7 +270,7 @@ export function DashboardPage({ onNavigate }) {
         <div>
           <h1 className="text-heading-lg text-ink font-bold">Dashboard Geral</h1>
           <p className="text-sm text-mute mt-1">
-            Resumo dos vídeos e conteúdos a fazer em cada setor da empresa
+            Visão consolidada do fluxo de produção, aprovações e vídeos a fazer
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -193,7 +280,7 @@ export function DashboardPage({ onNavigate }) {
             onClick={() => onNavigate && onNavigate('criativos')}
             icon={<Sparkles size={16} />}
           >
-            Aba Criativos
+            Criativos de Tráfego
           </Button>
           <Button
             variant="primary"
@@ -201,7 +288,7 @@ export function DashboardPage({ onNavigate }) {
             onClick={() => onNavigate && onNavigate('criativos')}
             icon={<ArrowRight size={16} />}
           >
-            Importar Planilha
+            Importar Sheets
           </Button>
         </div>
       </div>
@@ -209,79 +296,139 @@ export function DashboardPage({ onNavigate }) {
       {/* Top Global KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         
-        {/* KPI 1: Fila Total a Fazer */}
-        <div className="premium-card p-5" {...kpiSpotlight1}>
+        {/* KPI 1: Conteúdos a Fazer (Pendente) */}
+        <div
+          className={`premium-card p-5 cursor-pointer transition-all ${statusFilterTab === 'a-fazer' ? 'ring-2 ring-amber-500/50' : ''}`}
+          onClick={() => setStatusFilterTab('a-fazer')}
+          {...kpiSpotlight1}
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-faint uppercase tracking-wider">Conteúdos a Fazer (Total)</span>
+            <span className="text-xs font-semibold text-faint uppercase tracking-wider">Conteúdos a Fazer</span>
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10 text-amber-500">
               <Clock size={18} />
             </div>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-bold text-ink">{dashboardData.totalPendingCount}</span>
-            <span className="text-xs font-semibold text-amber-500">pendentes de edição</span>
+            <span className="text-3xl font-bold text-amber-600 dark:text-amber-400">{dashboardData.pendingCount}</span>
+            <span className="text-xs font-semibold text-amber-500">na fila de edição</span>
           </div>
         </div>
 
-        {/* KPI 2: Criativos a Fazer */}
-        <div className="premium-card p-5" {...kpiSpotlight2}>
+        {/* KPI 2: Aprovados */}
+        <div
+          className={`premium-card p-5 cursor-pointer transition-all ${statusFilterTab === 'aprovados' ? 'ring-2 ring-emerald-500/50' : ''}`}
+          onClick={() => setStatusFilterTab('aprovados')}
+          {...kpiSpotlight2}
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-faint uppercase tracking-wider">Criativos a Editar</span>
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald/10 text-emerald">
-              <Sparkles size={18} />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-bold text-emerald-deep dark:text-emerald-400">{dashboardData.criativosPendingCount}</span>
-            <span className="text-xs text-mute">na fila de tráfego</span>
-          </div>
-        </div>
-
-        {/* KPI 3: Vídeos Longos a Editar */}
-        <div className="premium-card p-5" {...kpiSpotlight3}>
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-faint uppercase tracking-wider">Vídeos Longos a Editar</span>
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/10 text-blue-500">
-              <Video size={18} />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-3xl font-bold text-ink">{dashboardData.vlPendingCount}</span>
-            <span className="text-xs text-mute">vídeos YouTube</span>
-          </div>
-        </div>
-
-        {/* KPI 4: Taxa de Conclusão */}
-        <div className="premium-card p-5" {...kpiSpotlight4}>
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-faint uppercase tracking-wider">Concluídos (% Geral)</span>
+            <span className="text-xs font-semibold text-faint uppercase tracking-wider">Aprovados (Prontos)</span>
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald/10 text-emerald">
               <CheckCircle2 size={18} />
             </div>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-emerald-deep dark:text-emerald-400">{dashboardData.approvedCount}</span>
+            <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">prontos p/ publicar</span>
+          </div>
+        </div>
+
+        {/* KPI 3: Publicados / Finalizados */}
+        <div
+          className={`premium-card p-5 cursor-pointer transition-all ${statusFilterTab === 'publicados' ? 'ring-2 ring-blue-500/50' : ''}`}
+          onClick={() => setStatusFilterTab('publicados')}
+          {...kpiSpotlight3}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-faint uppercase tracking-wider">Publicados / Finalizados</span>
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/10 text-blue-500">
+              <Video size={18} />
+            </div>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-blue-600 dark:text-blue-400">{dashboardData.finishedCount}</span>
+            <span className="text-xs text-mute">em circulação</span>
+          </div>
+        </div>
+
+        {/* KPI 4: Conclusão Geral */}
+        <div
+          className={`premium-card p-5 cursor-pointer transition-all ${statusFilterTab === 'todos' ? 'ring-2 ring-emerald-500/50' : ''}`}
+          onClick={() => setStatusFilterTab('todos')}
+          {...kpiSpotlight4}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-faint uppercase tracking-wider">Taxa de Conclusão</span>
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald/10 text-emerald">
+              <Check size={18} />
+            </div>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
             <span className="text-3xl font-bold text-emerald-deep dark:text-emerald-400">{dashboardData.completionRate}%</span>
-            <span className="text-xs text-mute">acervo editado</span>
+            <span className="text-xs text-mute">acervo aprovado</span>
           </div>
         </div>
 
       </div>
 
-      {/* Main Section: Content To-Do List by Sector */}
+      {/* Main Section: Content List */}
       <div className="space-y-4">
         
+        {/* Status Filter Tabs (Top Row) */}
+        <div className="flex items-center gap-2 border-b border-hairline pb-2 overflow-x-auto custom-scrollbar">
+          <button
+            onClick={() => setStatusFilterTab('a-fazer')}
+            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-2 border ${
+              statusFilterTab === 'a-fazer'
+                ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 shadow-xs'
+                : 'bg-surface text-mute border-hairline hover:text-ink'
+            }`}
+          >
+            <Clock size={14} /> ⏳ A Fazer ({dashboardData.pendingCount})
+          </button>
+          <button
+            onClick={() => setStatusFilterTab('aprovados')}
+            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-2 border ${
+              statusFilterTab === 'aprovados'
+                ? 'bg-emerald/10 text-emerald-deep dark:text-emerald-400 border-emerald/30 shadow-xs'
+                : 'bg-surface text-mute border-hairline hover:text-ink'
+            }`}
+          >
+            <CheckCircle2 size={14} /> ✅ Aprovados ({dashboardData.approvedCount})
+          </button>
+          <button
+            onClick={() => setStatusFilterTab('publicados')}
+            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-2 border ${
+              statusFilterTab === 'publicados'
+                ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30 shadow-xs'
+                : 'bg-surface text-mute border-hairline hover:text-ink'
+            }`}
+          >
+            <Video size={14} /> 🌐 Publicados ({dashboardData.finishedCount})
+          </button>
+          <button
+            onClick={() => setStatusFilterTab('todos')}
+            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-2 border ${
+              statusFilterTab === 'todos'
+                ? 'bg-surface text-ink border-hairline-strong shadow-xs'
+                : 'bg-surface text-mute border-hairline hover:text-ink'
+            }`}
+          >
+            <Layers size={14} /> Todos os Conteúdos ({dashboardData.totalCount})
+          </button>
+        </div>
+
         {/* Controls Bar & Sector Tabs */}
         <div className="premium-card p-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
           
-          {/* Tabs */}
-          <div className="flex flex-wrap items-center gap-1.5 bg-elevated/60 p-1 rounded-xl border border-hairline">
+          {/* Sector Tabs */}
+          <div className="flex flex-wrap items-center gap-1 bg-elevated/60 p-1 rounded-xl border border-hairline">
             <button
               onClick={() => setActiveSectorTab('todos')}
               className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
                 activeSectorTab === 'todos' ? 'bg-surface text-ink shadow-xs' : 'text-mute hover:text-ink'
               }`}
             >
-              Todos a Fazer ({dashboardData.totalPendingCount})
+              Todos os Setores
             </button>
             <button
               onClick={() => setActiveSectorTab('criativos')}
@@ -289,7 +436,7 @@ export function DashboardPage({ onNavigate }) {
                 activeSectorTab === 'criativos' ? 'bg-surface text-emerald-deep dark:text-emerald-400 shadow-xs' : 'text-mute hover:text-ink'
               }`}
             >
-              Criativos ({dashboardData.criativosPendingCount})
+              Criativos
             </button>
             <button
               onClick={() => setActiveSectorTab('longos')}
@@ -297,7 +444,7 @@ export function DashboardPage({ onNavigate }) {
                 activeSectorTab === 'longos' ? 'bg-surface text-blue-500 shadow-xs' : 'text-mute hover:text-ink'
               }`}
             >
-              Longos ({dashboardData.vlPendingCount})
+              Vídeos Longos
             </button>
             <button
               onClick={() => setActiveSectorTab('curtos')}
@@ -305,7 +452,7 @@ export function DashboardPage({ onNavigate }) {
                 activeSectorTab === 'curtos' ? 'bg-surface text-purple-500 shadow-xs' : 'text-mute hover:text-ink'
               }`}
             >
-              Reels/Curtos ({dashboardData.vcPendingCount})
+              Reels / Curtos
             </button>
             <button
               onClick={() => setActiveSectorTab('cortes')}
@@ -313,7 +460,7 @@ export function DashboardPage({ onNavigate }) {
                 activeSectorTab === 'cortes' ? 'bg-surface text-amber-500 shadow-xs' : 'text-mute hover:text-ink'
               }`}
             >
-              Carrossel ({dashboardData.coPendingCount})
+              Carrossel
             </button>
           </div>
 
@@ -349,9 +496,11 @@ export function DashboardPage({ onNavigate }) {
         <div className="premium-card overflow-hidden">
           <div className="p-4 border-b border-hairline flex items-center justify-between">
             <h2 className="text-xs font-bold text-ink uppercase tracking-wider flex items-center gap-2">
-              <Layers size={16} className="text-emerald" /> Fila de Conteúdos a Fazer ({filteredList.length})
+              <Layers size={16} className="text-emerald" /> Listagem de Conteúdos ({filteredList.length})
             </h2>
-            <span className="text-[11px] text-mute">Ordenado por prioridade de produção</span>
+            <span className="text-[11px] text-mute">
+              Exibindo: <strong className="text-ink font-semibold capitalize">{statusFilterTab.replace('-', ' ')}</strong>
+            </span>
           </div>
 
           <div className="overflow-x-auto custom-scrollbar">
@@ -360,7 +509,7 @@ export function DashboardPage({ onNavigate }) {
                 <tr>
                   <th className="px-4 py-3 min-w-[140px]">Setor</th>
                   <th className="px-4 py-3 min-w-[280px]">Título / Nome do Conteúdo</th>
-                  <th className="px-4 py-3 min-w-[120px]">Status</th>
+                  <th className="px-4 py-3 min-w-[130px]">Status Real</th>
                   <th className="px-4 py-3 min-w-[120px]">Editor</th>
                   <th className="px-4 py-3 min-w-[130px]">Gravação / Origem</th>
                   <th className="px-4 py-3 text-right min-w-[120px]">Ação</th>
@@ -371,12 +520,15 @@ export function DashboardPage({ onNavigate }) {
                   <tr>
                     <td colSpan={6} className="px-4 py-12 text-center text-mute">
                       <CheckCircle2 size={24} className="mx-auto text-emerald mb-2" />
-                      Nenhum conteúdo a fazer encontrado nesta categoria!
+                      Nenhum conteúdo encontrado para os filtros selecionados.
                     </td>
                   </tr>
                 ) : (
                   filteredList.map(item => {
                     const IconComponent = item.icon
+                    const isApproved = item.status === 'Aprovado'
+                    const isFinished = item.status === 'Publicado' || item.status === 'Finalizado'
+
                     return (
                       <tr key={item.id} className="table-row-hover">
                         
@@ -398,15 +550,19 @@ export function DashboardPage({ onNavigate }) {
                           )}
                         </td>
 
-                        {/* Status */}
+                        {/* Status Real Badge */}
                         <td className="px-4 py-3 whitespace-nowrap">
-                          <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${
-                            item.status === 'Em Edição'
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                            isApproved
+                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                              : isFinished
+                              ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
+                              : item.status.includes('Edição')
                               ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
-                              : item.status === 'Não Gravado'
-                              ? 'bg-red-500/10 text-red-500 border border-red-500/20'
-                              : 'bg-surface text-mute border border-hairline'
+                              : 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20'
                           }`}>
+                            {isApproved && <CheckCircle2 size={12} />}
+                            {isFinished && <Check size={12} />}
                             {item.status}
                           </span>
                         </td>
@@ -462,7 +618,7 @@ export function DashboardPage({ onNavigate }) {
         <div className="premium-card p-5 lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between border-b border-hairline pb-3">
             <h3 className="text-xs font-bold text-ink uppercase tracking-wider flex items-center gap-2">
-              <Users size={16} className="text-emerald" /> Carga de Trabalho por Editor (Pendente)
+              <Users size={16} className="text-emerald" /> Carga de Trabalho por Editor (Conteúdos a Fazer)
             </h3>
             <span className="text-[11px] text-mute">{dashboardData.editorsWorkload.length} responsáveis</span>
           </div>
@@ -474,7 +630,7 @@ export function DashboardPage({ onNavigate }) {
                   <p className="text-xs font-bold text-ink">{ed.name}</p>
                   <p className="text-[11px] text-mute mt-0.5">conteúdos a fazer</p>
                 </div>
-                <span className="text-lg font-bold text-emerald-deep dark:text-emerald-400 bg-emerald/10 px-2.5 py-0.5 rounded-lg">
+                <span className="text-lg font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-lg border border-amber-500/20">
                   {ed.count}
                 </span>
               </div>

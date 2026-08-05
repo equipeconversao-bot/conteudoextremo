@@ -84,7 +84,7 @@ const pageDescriptions = {
 
 function MainAppContent() {
   const { isAuthenticated, isAdmin } = useAuth()
-  const [activePage, setActivePage] = useState('criativos')
+  const [activePage, setActivePage] = useState('dashboard')
   const [splashDone, setSplashDone] = useState(false)
 
   if (!isAuthenticated) {
