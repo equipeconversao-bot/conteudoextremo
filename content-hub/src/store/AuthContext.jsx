@@ -14,21 +14,13 @@ import {
   adminDeleteUser,
 } from '../lib/authStore'
 
-const DEFAULT_MASTER_USER = {
-  id: 'user-master-ce',
-  name: 'Equipe Conversão Extrema',
-  email: 'admin@conversaoextrema.com',
-  role: 'admin',
-  status: 'approved',
-}
-
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
-  // Default to DEFAULT_MASTER_USER if no local session exists so EVERY visitor enters the Master Shared Portal!
+  // Load session from local storage; if unauthenticated, user is null (triggers LoginPage)
   const [user, setUser] = useState(() => {
     const session = getLocalSession()
-    return session && session.status === 'approved' ? session : DEFAULT_MASTER_USER
+    return session && session.status === 'approved' ? session : null
   })
 
   const [allUsers, setAllUsers] = useState(() => getLocalUsers())
@@ -42,8 +34,13 @@ export function AuthProvider({ children }) {
     const currentSession = getLocalSession()
     if (currentSession) {
       const updatedUser = list.find(u => u.id === currentSession.id)
-      if (updatedUser && updatedUser.status === 'approved') {
-        setUser(updatedUser)
+      if (updatedUser) {
+        if (updatedUser.status !== 'approved') {
+          setUser(null)
+          logoutUser()
+        } else {
+          setUser(updatedUser)
+        }
       }
     }
   }, [])
@@ -79,8 +76,7 @@ export function AuthProvider({ children }) {
 
   const handleLogout = () => {
     logoutUser()
-    // Reset back to Master User so visitor stays in Master Shared Portal
-    setUser(DEFAULT_MASTER_USER)
+    setUser(null)
     setPendingNoticeUser(null)
   }
 
@@ -115,11 +111,11 @@ export function AuthProvider({ children }) {
     await refreshUsers()
   }
 
-  const role = user?.role || 'admin'
+  const role = user?.role || 'visualizador'
   const isAdmin = role === 'admin'
   const canEdit = role === 'admin' || role === 'editor'
   const isVisualizador = role === 'visualizador'
-  const isAuthenticated = true // Master Shared Access always active
+  const isAuthenticated = !!user && user.status === 'approved'
 
   return (
     <AuthContext.Provider
