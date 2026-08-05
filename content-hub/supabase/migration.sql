@@ -138,6 +138,16 @@ alter table usuarios enable row level security;
 
 -- Policy: allow all operations for anon key (para time pequeno)
 -- Em produção, troque por autenticação real
+drop policy if exists "Allow all for anon" on videos_longos;
+drop policy if exists "Allow all for anon" on videos_curtos;
+drop policy if exists "Allow all for anon" on cortes;
+drop policy if exists "Allow all for anon" on frases;
+drop policy if exists "Allow all for anon" on equipe;
+drop policy if exists "Allow all for anon" on calendario;
+drop policy if exists "Allow all for anon" on producao;
+drop policy if exists "Allow all for anon" on criativos;
+drop policy if exists "Allow all for anon" on usuarios;
+
 create policy "Allow all for anon" on videos_longos for all using (true) with check (true);
 create policy "Allow all for anon" on videos_curtos for all using (true) with check (true);
 create policy "Allow all for anon" on cortes for all using (true) with check (true);
