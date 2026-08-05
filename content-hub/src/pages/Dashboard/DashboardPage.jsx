@@ -23,10 +23,35 @@ export function DashboardPage({ onNavigate }) {
   })
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(CRIATIVOS_STORAGE_KEY)
-      if (saved) setCriativos(JSON.parse(saved))
-    } catch (e) {}
+    async function syncCloudData() {
+      try {
+        const localSaved = localStorage.getItem(CRIATIVOS_STORAGE_KEY)
+        const localItems = localSaved ? JSON.parse(localSaved) : []
+
+        const res = await fetch('/api/data')
+        if (res.ok) {
+          const json = await res.json()
+          const cloudItems = json?.data?.criativos || []
+
+          if (cloudItems.length > 0) {
+            const cloudJson = JSON.stringify(cloudItems)
+            if (cloudJson !== localSaved) {
+              setCriativos(cloudItems)
+              localStorage.setItem(CRIATIVOS_STORAGE_KEY, cloudJson)
+            }
+          } else if (localItems.length > 0) {
+            fetch('/api/data', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ criativos: localItems }),
+            }).catch(() => {})
+          }
+        }
+      } catch (e) {}
+    }
+    syncCloudData()
+    const interval = setInterval(syncCloudData, 4000)
+    return () => clearInterval(interval)
   }, [])
 
   const state = useStore()

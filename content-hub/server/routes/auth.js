@@ -6,16 +6,29 @@ export const authRouter = Router()
 
 const DATA_FILE = path.join('/tmp', 'content_hub_users_db.json')
 
+const DEFAULT_ADMIN = {
+  id: 'admin-master-ce',
+  name: 'Admin Conversão Extrema',
+  email: 'admin@conversaoextrema.com',
+  password: 'admin',
+  role: 'admin',
+  status: 'approved',
+  createdAt: '2026-08-01T00:00:00.000Z',
+}
+
 function loadUsersServer() {
   try {
     if (fs.existsSync(DATA_FILE)) {
       const content = fs.readFileSync(DATA_FILE, 'utf8')
-      if (content) return JSON.parse(content)
+      if (content) {
+        const parsed = JSON.parse(content)
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed
+      }
     }
   } catch (err) {
     console.error('Error reading server users file:', err)
   }
-  return []
+  return [DEFAULT_ADMIN]
 }
 
 function saveUsersServer(users) {
@@ -31,6 +44,10 @@ let memoryUsers = loadUsersServer()
 function getUsers() {
   if (!memoryUsers || memoryUsers.length === 0) {
     memoryUsers = loadUsersServer()
+  }
+  // Ensure default admin always exists
+  if (!memoryUsers.some(u => u.role === 'admin')) {
+    memoryUsers.unshift(DEFAULT_ADMIN)
   }
   return memoryUsers
 }
@@ -60,10 +77,9 @@ authRouter.post('/register', (req, res) => {
     return res.status(400).json({ error: 'Já existe uma conta cadastrada com este e-mail.' })
   }
 
-  // FIRST USER ON SERVER IS ADMIN AND APPROVED! SUBSEQUENT ARE PENDING!
-  const isFirstUser = users.length === 0
-  const role = isFirstUser ? 'admin' : 'visualizador'
-  const status = isFirstUser ? 'approved' : 'pending'
+  // ALL NEW REGISTRATIONS ARE PENDING APPROVAL (VISUALIZADOR)
+  const role = 'visualizador'
+  const status = 'pending'
 
   const newUser = {
     id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
@@ -78,7 +94,7 @@ authRouter.post('/register', (req, res) => {
   const updated = [...users, newUser]
   setUsers(updated)
 
-  res.json({ user: newUser, isPending: status === 'pending' })
+  res.json({ user: newUser, isPending: true })
 })
 
 // POST /api/auth/login

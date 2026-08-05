@@ -43,20 +43,30 @@ export function CriativosPage() {
     }
   }, [criativos])
 
-  // Poll cloud storage so all open browsers on different machines stay 100% synced in real time
+  // Cloud Sync: push local dataset to cloud if cloud is empty, else sync from cloud
   useEffect(() => {
     async function syncFromCloud() {
       try {
+        const localSaved = localStorage.getItem(STORAGE_KEY)
+        const localItems = localSaved ? JSON.parse(localSaved) : []
+
         const res = await fetch('/api/data')
         if (res.ok) {
           const json = await res.json()
-          if (json?.data?.criativos && Array.isArray(json.data.criativos) && json.data.criativos.length > 0) {
-            const cloudJson = JSON.stringify(json.data.criativos)
-            const localJson = localStorage.getItem(STORAGE_KEY)
-            if (cloudJson !== localJson) {
-              setCriativos(json.data.criativos)
+          const cloudItems = json?.data?.criativos || []
+
+          if (cloudItems.length > 0) {
+            const cloudJson = JSON.stringify(cloudItems)
+            if (cloudJson !== localSaved) {
+              setCriativos(cloudItems)
               localStorage.setItem(STORAGE_KEY, cloudJson)
             }
+          } else if (localItems.length > 0) {
+            fetch('/api/data', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ criativos: localItems }),
+            }).catch(() => {})
           }
         }
       } catch (err) {}
