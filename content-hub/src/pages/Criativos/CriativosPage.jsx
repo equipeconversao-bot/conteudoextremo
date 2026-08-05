@@ -24,7 +24,7 @@ export function CriativosPage() {
     } catch (e) {
       console.error('Error loading criativos from storage', e)
     }
-    return []
+    return initialCriativos
   })
 
   // Save changes to localStorage & Cloud API

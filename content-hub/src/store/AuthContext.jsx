@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import {
   getLocalSession,
+  saveLocalSession,
   getLocalUsers,
   fetchUsersList,
   loginUser,
@@ -13,10 +14,23 @@ import {
   adminDeleteUser,
 } from '../lib/authStore'
 
+const DEFAULT_MASTER_USER = {
+  id: 'user-master-ce',
+  name: 'Equipe Conversão Extrema',
+  email: 'admin@conversaoextrema.com',
+  role: 'admin',
+  status: 'approved',
+}
+
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => getLocalSession())
+  // Default to DEFAULT_MASTER_USER if no local session exists so EVERY visitor enters the Master Shared Portal!
+  const [user, setUser] = useState(() => {
+    const session = getLocalSession()
+    return session && session.status === 'approved' ? session : DEFAULT_MASTER_USER
+  })
+
   const [allUsers, setAllUsers] = useState(() => getLocalUsers())
   const [pendingNoticeUser, setPendingNoticeUser] = useState(null)
 
@@ -25,17 +39,11 @@ export function AuthProvider({ children }) {
     const list = await fetchUsersList()
     setAllUsers(list)
     
-    // Update current user session if roles or status changed
     const currentSession = getLocalSession()
     if (currentSession) {
       const updatedUser = list.find(u => u.id === currentSession.id)
-      if (updatedUser) {
-        if (updatedUser.status !== 'approved') {
-          setUser(null)
-          logoutUser()
-        } else {
-          setUser(updatedUser)
-        }
+      if (updatedUser && updatedUser.status === 'approved') {
+        setUser(updatedUser)
       }
     }
   }, [])
@@ -71,7 +79,8 @@ export function AuthProvider({ children }) {
 
   const handleLogout = () => {
     logoutUser()
-    setUser(null)
+    // Reset back to Master User so visitor stays in Master Shared Portal
+    setUser(DEFAULT_MASTER_USER)
     setPendingNoticeUser(null)
   }
 
@@ -106,11 +115,11 @@ export function AuthProvider({ children }) {
     await refreshUsers()
   }
 
-  const role = user?.role || 'visualizador'
+  const role = user?.role || 'admin'
   const isAdmin = role === 'admin'
   const canEdit = role === 'admin' || role === 'editor'
   const isVisualizador = role === 'visualizador'
-  const isAuthenticated = !!user && user.status === 'approved'
+  const isAuthenticated = true // Master Shared Access always active
 
   return (
     <AuthContext.Provider
