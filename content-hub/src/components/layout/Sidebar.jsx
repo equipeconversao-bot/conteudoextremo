@@ -144,6 +144,14 @@ export function Sidebar({ activePage, onNavigate, collapsed, onToggleCollapse })
           )}
           <ThemeToggle />
         </div>
+        <button
+          onClick={logout}
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-medium text-mute hover:text-danger hover:bg-danger/5 border border-hairline transition-colors"
+          title="Sair"
+        >
+          <LogOut size={14} />
+          {!collapsed && <span>Sair</span>}
+        </button>
       </div>
     </aside>
   )
