@@ -38,6 +38,7 @@ create table if not exists cortes (
   updated_at timestamptz default now(),
   editado boolean default false,
   aprovado boolean default false,
+  publicado boolean default false,
   conteudo_original text default '',
   observacao text default '',
   titulo text default '',
@@ -45,6 +46,9 @@ create table if not exists cortes (
   link_finalizado text default '',
   link_drive text default ''
 );
+
+-- Compatibilidade: adiciona colunas novas em tabelas ja existentes
+alter table cortes add column if not exists publicado boolean default false;
 
 -- 4. Frases
 create table if not exists frases (

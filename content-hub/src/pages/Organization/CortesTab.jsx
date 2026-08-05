@@ -16,11 +16,11 @@ import { ClaudeButton } from '../../components/claude/ClaudePanel'
 import { ScheduleModal } from '../../components/calendar/ScheduleModal'
 import { Plus, Pencil, Trash2, ExternalLink, AlertCircle, LayoutGrid, Download, Folder } from 'lucide-react'
 
-const STAGES = ['editado', 'aprovado']
-const STAGE_LABELS = { editado: 'Editado', aprovado: 'Aprovado' }
+const STAGES = ['editado', 'aprovado', 'publicado']
+const STAGE_LABELS = { editado: 'Editado', aprovado: 'Aprovado', publicado: 'Publicado' }
 
 const emptyItem = {
-  conteudoOriginal: '', editado: false, aprovado: false,
+  conteudoOriginal: '', editado: false, aprovado: false, publicado: false,
   observacao: '', titulo: '', linkFinalizado: '', linkDrive: '',
 }
 
