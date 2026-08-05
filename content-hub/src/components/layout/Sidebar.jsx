@@ -80,7 +80,7 @@ export function Sidebar({ activePage, onNavigate, collapsed, onToggleCollapse })
       <div className="flex h-16 items-center justify-between px-4 border-b border-hairline">
         {!collapsed && (
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => onNavigate('dashboard')}>
-            <Logo className="h-7 w-auto" />
+            <Logo className="h-5 w-auto" />
           </div>
         )}
         <button
