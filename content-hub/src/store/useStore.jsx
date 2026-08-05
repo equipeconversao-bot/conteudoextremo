@@ -69,25 +69,83 @@ export function StoreProvider({ children }) {
     loadedRef.current = true
 
     async function loadAll() {
-      const collections = Object.keys(TABLE_MAP)
-      const results = await Promise.all(collections.map(name => loadCollection(name)))
+      try {
+        const collections = Object.keys(TABLE_MAP)
+        const results = await Promise.all(collections.map(name => loadCollection(name)))
 
-      const newState = { loaded: true }
-      collections.forEach((name, i) => {
-        newState[name] = arrayFromDb(results[i]) || []
-      })
+        const newState = { loaded: true }
+        collections.forEach((name, i) => {
+          newState[name] = arrayFromDb(results[i]) || []
+        })
 
-      setState(prev => ({ ...prev, ...newState }))
+        // Fetch from global cloud API
+        const cloudRes = await fetch('/api/data').catch(() => null)
+        if (cloudRes && cloudRes.ok) {
+          const cloudData = await cloudRes.json()
+          if (cloudData?.data) {
+            collections.forEach(name => {
+              if (Array.isArray(cloudData.data[name]) && cloudData.data[name].length > 0) {
+                newState[name] = cloudData.data[name]
+              }
+            })
+          }
+        }
+
+        setState(prev => ({ ...prev, ...newState }))
+      } catch (err) {
+        console.error('Error in loadAll store:', err)
+        setState(prev => ({ ...prev, loaded: true }))
+      }
     }
 
     loadAll()
+
+    // 4s polling for global real-time synchronization across all devices
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch('/api/data')
+        if (res.ok) {
+          const json = await res.json()
+          if (json?.data) {
+            setState(prev => {
+              let changed = false
+              const updated = { ...prev }
+              Object.keys(TABLE_MAP).forEach(name => {
+                if (Array.isArray(json.data[name]) && json.data[name].length > 0) {
+                  const cloudJson = JSON.stringify(json.data[name])
+                  const localJson = JSON.stringify(prev[name])
+                  if (cloudJson !== localJson) {
+                    updated[name] = json.data[name]
+                    changed = true
+                  }
+                }
+              })
+              return changed ? updated : prev
+            })
+          }
+        }
+      } catch (e) {}
+    }, 4000)
+
+    return () => clearInterval(interval)
   }, [])
 
   const updateState = useCallback((name, updater) => {
-    setState(prev => ({
-      ...prev,
-      [name]: updater(prev[name]),
-    }))
+    setState(prev => {
+      const newItems = updater(prev[name])
+      const nextState = {
+        ...prev,
+        [name]: newItems,
+      }
+      try {
+        fetch('/api/data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ [name]: newItems }),
+        }).catch(() => {})
+      } catch (e) {}
+      return nextState
+    })
   }, [])
 
   const addItem = useCallback(async (name, item) => {

@@ -27,14 +27,44 @@ export function CriativosPage() {
     return []
   })
 
-  // Save changes to localStorage
+  // Save changes to localStorage & Cloud API
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(criativos))
+      if (criativos && criativos.length > 0) {
+        fetch('/api/data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ criativos }),
+        }).catch(() => {})
+      }
     } catch (e) {
       console.error('Error saving criativos to storage', e)
     }
   }, [criativos])
+
+  // Poll cloud storage so all open browsers on different machines stay 100% synced in real time
+  useEffect(() => {
+    async function syncFromCloud() {
+      try {
+        const res = await fetch('/api/data')
+        if (res.ok) {
+          const json = await res.json()
+          if (json?.data?.criativos && Array.isArray(json.data.criativos) && json.data.criativos.length > 0) {
+            const cloudJson = JSON.stringify(json.data.criativos)
+            const localJson = localStorage.getItem(STORAGE_KEY)
+            if (cloudJson !== localJson) {
+              setCriativos(json.data.criativos)
+              localStorage.setItem(STORAGE_KEY, cloudJson)
+            }
+          }
+        }
+      } catch (err) {}
+    }
+    syncFromCloud()
+    const interval = setInterval(syncFromCloud, 4000)
+    return () => clearInterval(interval)
+  }, [])
 
   // Filters & Search
   const [searchTerm, setSearchTerm] = useState('')
