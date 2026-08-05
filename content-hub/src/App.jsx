@@ -105,7 +105,7 @@ function MainAppContent() {
             {activePage === 'producao' && <ProducaoPage onNavigate={setActivePage} />}
             {activePage === 'mineracao' && <MineracaoPage />}
             {activePage === 'calendario' && <CalendarPage />}
-            {activePage === 'dashboard' && <DashboardPage />}
+            {activePage === 'dashboard' && <DashboardPage onNavigate={setActivePage} />}
             {activePage === 'analytics' && <AnalyticsPage />}
             {activePage === 'equipe' && <TeamPage />}
             {activePage === 'settings' && <SettingsPage />}

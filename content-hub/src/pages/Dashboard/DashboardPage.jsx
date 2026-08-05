@@ -1,416 +1,522 @@
-import { useMemo, useState, useEffect, useCallback } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useStore } from '../../store/useStore'
-import { Card } from '../../components/ui/Card'
-import { Badge } from '../../components/ui/Badge'
+import { useSpotlight } from '../../lib/useSpotlight'
 import { Button } from '../../components/ui/Button'
-import { cn } from '../../lib/cn'
-import { api } from '../../lib/api'
 import {
-  Video, Film, LayoutGrid, MessageSquareQuote, Calendar,
-  Eye, Heart, UserPlus, Activity, AlertTriangle,
-  TrendingUp, Clock, CheckCircle, BarChart3,
-  Loader2, RefreshCw, ThumbsUp, MessageCircle,
+  Video, Film, LayoutGrid, Sparkles, MessageSquareQuote, Calendar,
+  Clock, CheckCircle2, AlertCircle, ArrowRight, ExternalLink,
+  Users, Layers, FileVideo, Filter, Search, ChevronRight, Folder, Eye
 } from 'lucide-react'
 
-function formatNumber(n) {
-  if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M'
-  if (n >= 1000) return (n / 1000).toFixed(1) + 'K'
-  return String(n)
-}
+const CRIATIVOS_STORAGE_KEY = 'content_hub_criativos_data'
 
-function daysAgo(dateStr) {
-  if (!dateStr) return 999
-  const then = new Date(dateStr)
-  const now = new Date()
-  return Math.floor((now - then) / (1000 * 60 * 60 * 24))
-}
+export function DashboardPage({ onNavigate }) {
+  // Load Criativos from storage
+  const [criativos, setCriativos] = useState(() => {
+    try {
+      const saved = localStorage.getItem(CRIATIVOS_STORAGE_KEY)
+      if (saved) return JSON.parse(saved)
+    } catch (e) {
+      console.error('Error loading criativos for dashboard:', e)
+    }
+    return []
+  })
 
-export function DashboardPage() {
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(CRIATIVOS_STORAGE_KEY)
+      if (saved) setCriativos(JSON.parse(saved))
+    } catch (e) {}
+  }, [])
+
   const state = useStore()
 
-  const stats = useMemo(() => {
-    const vl = state.videosLongos || []
-    const vc = state.videosCurtos || []
-    const co = state.cortes || []
-    const fr = state.frases || []
-    const cal = state.calendario || []
+  // Filters state
+  const [activeSectorTab, setActiveSectorTab] = useState('todos') // 'todos' | 'criativos' | 'longos' | 'curtos' | 'cortes'
+  const [editorFilter, setEditorFilter] = useState('Todos')
+  const [searchTerm, setSearchTerm] = useState('')
 
-    // Content counts
-    const totalContent = vl.length + vc.length + co.length
-    const published = vl.filter(i => i.publicado).length + vc.filter(i => i.publicado).length
-    const approved = vl.filter(i => i.aprovado && !i.publicado).length + vc.filter(i => i.aprovado && !i.publicado).length
-    const inProgress = totalContent - published - approved - (vl.filter(i => !i.gravado && !i.editado).length + vc.filter(i => !i.editado).length + co.filter(i => !i.editado).length)
+  // Spotlight hooks for cards
+  const kpiSpotlight1 = useSpotlight()
+  const kpiSpotlight2 = useSpotlight()
+  const kpiSpotlight3 = useSpotlight()
+  const kpiSpotlight4 = useSpotlight()
 
-    // Pending items (approved but no link)
-    const pendingItems = [
-      ...vl.filter(i => i.aprovado && !i.linkFinalizado).map(i => ({ ...i, type: 'Vídeo Longo', title: i.tema })),
-      ...vc.filter(i => i.aprovado && !i.linkFinalizado).map(i => ({ ...i, type: 'Vídeo Curto', title: i.titulo })),
-      ...co.filter(i => i.aprovado && !i.linkFinalizado).map(i => ({ ...i, type: 'Corte', title: i.titulo })),
+  // Calculate stats & pending items across ALL sectors
+  const dashboardData = useMemo(() => {
+    const vl = state?.videosLongos || []
+    const vc = state?.videosCurtos || []
+    const co = state?.cortes || []
+    const fr = state?.frases || []
+    const cal = state?.calendario || []
+
+    // Sector 1: Criativos (não editados/finalizados)
+    const criativosAFazer = criativos.filter(c => c.status !== 'Finalizado')
+
+    // Sector 2: Vídeos Longos (não editados/gravados)
+    const vlAFazer = vl.filter(i => !i.editado || !i.publicado).map(i => ({
+      id: `vl-${i.id}`,
+      sector: 'Vídeos Longos',
+      sectorKey: 'longos',
+      icon: Video,
+      title: i.tema || i.titulo || 'Vídeo Longo sem título',
+      status: !i.gravado ? 'Não Gravado' : !i.editado ? 'Em Edição' : 'Fila',
+      editor: i.editor || i.ondeQuem || '—',
+      gravacao: i.ondeQuem || 'YouTube',
+      linkDrive: i.linkPasta || i.linkFinalizado || '',
+      origemTab: 'videos-longos',
+    }))
+
+    // Sector 3: Vídeos Curtos / Reels / TikTok (não editados)
+    const vcAFazer = vc.filter(i => !i.editado || !i.publicado).map(i => ({
+      id: `vc-${i.id}`,
+      sector: 'Vídeos Curtos',
+      sectorKey: 'curtos',
+      icon: Film,
+      title: i.titulo || 'Vídeo Curto sem título',
+      status: !i.editado ? 'Em Edição' : 'Fila',
+      editor: i.editor || '—',
+      gravacao: i.plataforma || 'Reels / Shorts',
+      linkDrive: i.linkFinalizado || '',
+      origemTab: 'videos-curtos',
+    }))
+
+    // Sector 4: Carrosséis / Cortes (não editados)
+    const coAFazer = co.filter(i => !i.editado || !i.aprovado).map(i => ({
+      id: `co-${i.id}`,
+      sector: 'Carrossel / Cortes',
+      sectorKey: 'cortes',
+      icon: LayoutGrid,
+      title: i.titulo || 'Carrossel sem título',
+      status: !i.editado ? 'Em Edição' : 'Fila',
+      editor: i.editor || '—',
+      gravacao: 'Instagram',
+      linkDrive: i.linkFinalizado || '',
+      origemTab: 'cortes',
+    }))
+
+    // Formatted Criativos list for table
+    const criativosFormatted = criativosAFazer.map(c => ({
+      id: c.id,
+      sector: 'Criativos de Tráfego',
+      sectorKey: 'criativos',
+      icon: Sparkles,
+      title: c.nomeArquivo,
+      status: c.status || 'Fila',
+      editor: c.editor || '—',
+      gravacao: c.gravacao || 'Tráfego',
+      tag: c.tag,
+      linkDrive: c.linkPastaBase || '',
+      origemTab: 'criativos',
+    }))
+
+    // Combined Pending List
+    const allPendingList = [
+      ...criativosFormatted,
+      ...vlAFazer,
+      ...vcAFazer,
+      ...coAFazer,
     ]
 
-    // Stalled items (>7 days without stage change)
-    const stalledItems = [
-      ...vl.filter(i => !i.publicado && daysAgo(i.updatedAt) > 7).map(i => ({ ...i, type: 'Vídeo Longo', title: i.tema, days: daysAgo(i.updatedAt) })),
-      ...vc.filter(i => !i.publicado && daysAgo(i.updatedAt) > 7).map(i => ({ ...i, type: 'Vídeo Curto', title: i.titulo, days: daysAgo(i.updatedAt) })),
-      ...co.filter(i => !i.aprovado && daysAgo(i.updatedAt) > 7).map(i => ({ ...i, type: 'Corte', title: i.titulo, days: daysAgo(i.updatedAt) })),
-    ].sort((a, b) => b.days - a.days)
+    // Total counts
+    const totalPendingCount = allPendingList.length
+    const criativosPendingCount = criativosAFazer.length
+    const vlPendingCount = vlAFazer.length
+    const vcPendingCount = vcAFazer.length
+    const coPendingCount = coAFazer.length
 
-    // Frases performance
-    const topFrases = [...fr].sort((a, b) => (b.visualizacoes || 0) - (a.visualizacoes || 0)).slice(0, 5)
-    const totalViews = fr.reduce((s, i) => s + (i.visualizacoes || 0), 0)
-    const totalInteractions = fr.reduce((s, i) => s + (i.interacoes || 0), 0)
-    const totalFollowers = fr.reduce((s, i) => s + (i.novosSeguidores || 0), 0)
+    // Completion percentage calculation
+    const totalItemsCount = criativos.length + vl.length + vc.length + co.length
+    const totalFinishedCount = (criativos.length - criativosPendingCount) +
+      vl.filter(i => i.editado && i.publicado).length +
+      vc.filter(i => i.editado && i.publicado).length +
+      co.filter(i => i.editado && i.aprovado).length
 
-    // Calendar stats
-    const upcoming = cal.filter(i => i.agenda >= new Date().toISOString().split('T')[0] && i.status !== 'Publicado').length
-    const calPublished = cal.filter(i => i.status === 'Publicado').length
+    const completionRate = totalItemsCount > 0 ? Math.round((totalFinishedCount / totalItemsCount) * 100) : 0
 
-    // Partners/brands
-    const partners = {}
-    vl.forEach(i => {
-      if (i.ondeQuem) {
-        if (!partners[i.ondeQuem]) partners[i.ondeQuem] = { name: i.ondeQuem, total: 0, published: 0 }
-        partners[i.ondeQuem].total++
-        if (i.publicado) partners[i.ondeQuem].published++
-      }
+    // Editors workload map
+    const editorsWorkload = {}
+    allPendingList.forEach(item => {
+      const ed = item.editor && item.editor !== '—' ? item.editor : 'Sem Editor'
+      if (!editorsWorkload[ed]) editorsWorkload[ed] = 0
+      editorsWorkload[ed]++
     })
 
+    // Calendar upcoming items
+    const todayStr = new Date().toISOString().split('T')[0]
+    const upcomingCalendar = cal
+      .filter(i => i.agenda >= todayStr && i.status !== 'Publicado')
+      .slice(0, 4)
+
     return {
-      totalContent, published, approved, inProgress,
-      pendingItems, stalledItems,
-      topFrases, totalViews, totalInteractions, totalFollowers,
-      upcoming, calPublished,
-      partners: Object.values(partners).sort((a, b) => b.total - a.total),
-      vlCount: vl.length, vcCount: vc.length, coCount: co.length, frCount: fr.length,
+      allPendingList,
+      totalPendingCount,
+      criativosPendingCount,
+      vlPendingCount,
+      vcPendingCount,
+      coPendingCount,
+      completionRate,
+      editorsWorkload: Object.entries(editorsWorkload).map(([name, count]) => ({ name, count })),
+      upcomingCalendar,
     }
-  }, [state])
+  }, [criativos, state])
+
+  // Filtered List
+  const filteredList = useMemo(() => {
+    return dashboardData.allPendingList.filter(item => {
+      const matchesTab = activeSectorTab === 'todos' || item.sectorKey === activeSectorTab
+      const matchesEditor = editorFilter === 'Todos' ||
+        (editorFilter === 'Sem Editor' ? (item.editor === '—' || !item.editor) : item.editor === editorFilter)
+
+      const matchesSearch = item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.gravacao.toLowerCase().includes(searchTerm.toLowerCase())
+
+      return matchesTab && matchesEditor && matchesSearch
+    })
+  }, [dashboardData.allPendingList, activeSectorTab, editorFilter, searchTerm])
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-heading-lg text-ink">Dashboard</h1>
-        <p className="text-sm text-mute mt-1">Visão geral de todo seu conteúdo</p>
+    <div className="space-y-6">
+      
+      {/* Top Welcome Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-heading-lg text-ink font-bold">Dashboard Geral</h1>
+          <p className="text-sm text-mute mt-1">
+            Resumo dos vídeos e conteúdos a fazer em cada setor da empresa
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => onNavigate && onNavigate('criativos')}
+            icon={<Sparkles size={16} />}
+          >
+            Aba Criativos
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => onNavigate && onNavigate('criativos')}
+            icon={<ArrowRight size={16} />}
+          >
+            Importar Planilha
+          </Button>
+        </div>
       </div>
 
-      {/* Main Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard icon={Video} label="Vídeos Longos" value={stats.vlCount} color="blue" />
-        <StatCard icon={Film} label="Vídeos Curtos" value={stats.vcCount} color="purple" />
-        <StatCard icon={LayoutGrid} label="Carrossel" value={stats.coCount} color="amber" />
-        <StatCard icon={MessageSquareQuote} label="Frases" value={stats.frCount} color="emerald" />
-      </div>
-
-      {/* Pipeline + Calendar */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-        <Card className="lg:col-span-2">
-          <h3 className="text-base font-semibold text-ink mb-4 flex items-center gap-2">
-            <BarChart3 size={18} className="text-emerald" /> Pipeline de Conteúdo
-          </h3>
-          <div className="grid grid-cols-3 gap-4">
-            <PipelineStat label="Em progresso" value={stats.inProgress} color="bg-blue-400" />
-            <PipelineStat label="Aprovados" value={stats.approved} color="bg-amber-400" />
-            <PipelineStat label="Publicados" value={stats.published} color="bg-emerald" />
-          </div>
-          {/* Progress bar */}
-          <div className="mt-4 flex h-2 rounded-full overflow-hidden bg-elevated">
-            {stats.totalContent > 0 && (
-              <>
-                <div className="bg-blue-400 transition-all" style={{ width: `${(stats.inProgress / stats.totalContent) * 100}%` }} />
-                <div className="bg-amber-400 transition-all" style={{ width: `${(stats.approved / stats.totalContent) * 100}%` }} />
-                <div className="bg-emerald transition-all" style={{ width: `${(stats.published / stats.totalContent) * 100}%` }} />
-              </>
-            )}
-          </div>
-        </Card>
-
-        <Card>
-          <h3 className="text-base font-semibold text-ink mb-4 flex items-center gap-2">
-            <Calendar size={18} className="text-emerald" /> Calendário
-          </h3>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-mute">Posts agendados</span>
-              <span className="text-lg font-bold text-ink">{stats.upcoming}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-mute">Publicados</span>
-              <span className="text-lg font-bold text-emerald">{stats.calPublished}</span>
+      {/* Top Global KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        
+        {/* KPI 1: Fila Total a Fazer */}
+        <div className="premium-card p-5" {...kpiSpotlight1}>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-faint uppercase tracking-wider">Conteúdos a Fazer (Total)</span>
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10 text-amber-500">
+              <Clock size={18} />
             </div>
           </div>
-        </Card>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-ink">{dashboardData.totalPendingCount}</span>
+            <span className="text-xs font-semibold text-amber-500">pendentes de edição</span>
+          </div>
+        </div>
+
+        {/* KPI 2: Criativos a Fazer */}
+        <div className="premium-card p-5" {...kpiSpotlight2}>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-faint uppercase tracking-wider">Criativos a Editar</span>
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald/10 text-emerald">
+              <Sparkles size={18} />
+            </div>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-emerald-deep dark:text-emerald-400">{dashboardData.criativosPendingCount}</span>
+            <span className="text-xs text-mute">na fila de tráfego</span>
+          </div>
+        </div>
+
+        {/* KPI 3: Vídeos Longos a Editar */}
+        <div className="premium-card p-5" {...kpiSpotlight3}>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-faint uppercase tracking-wider">Vídeos Longos a Editar</span>
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/10 text-blue-500">
+              <Video size={18} />
+            </div>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-ink">{dashboardData.vlPendingCount}</span>
+            <span className="text-xs text-mute">vídeos YouTube</span>
+          </div>
+        </div>
+
+        {/* KPI 4: Taxa de Conclusão */}
+        <div className="premium-card p-5" {...kpiSpotlight4}>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-faint uppercase tracking-wider">Concluídos (% Geral)</span>
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald/10 text-emerald">
+              <CheckCircle2 size={18} />
+            </div>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-3xl font-bold text-emerald-deep dark:text-emerald-400">{dashboardData.completionRate}%</span>
+            <span className="text-xs text-mute">acervo editado</span>
+          </div>
+        </div>
+
       </div>
 
-      {/* Alerts & Performance side by side */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-        {/* Pending Items */}
-        <Card>
-          <h3 className="text-base font-semibold text-ink mb-4 flex items-center gap-2">
-            <AlertTriangle size={18} className="text-warning" /> Pendências ({stats.pendingItems.length})
-          </h3>
-          {stats.pendingItems.length === 0 ? (
-            <p className="text-sm text-mute flex items-center gap-2"><CheckCircle size={14} className="text-emerald" /> Nenhuma pendência!</p>
-          ) : (
-            <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
-              {stats.pendingItems.map(item => (
-                <div key={item.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-amber-50/50 dark:bg-amber-950/10 border border-amber-100 dark:border-amber-900/30">
-                  <Badge tone="warning" className="shrink-0 text-[9px]">{item.type}</Badge>
-                  <span className="text-sm text-ink truncate flex-1">{item.title}</span>
-                  <span className="text-[10px] text-mute shrink-0">Sem link</span>
-                </div>
+      {/* Main Section: Content To-Do List by Sector */}
+      <div className="space-y-4">
+        
+        {/* Controls Bar & Sector Tabs */}
+        <div className="premium-card p-4 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+          
+          {/* Tabs */}
+          <div className="flex flex-wrap items-center gap-1.5 bg-elevated/60 p-1 rounded-xl border border-hairline">
+            <button
+              onClick={() => setActiveSectorTab('todos')}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                activeSectorTab === 'todos' ? 'bg-surface text-ink shadow-xs' : 'text-mute hover:text-ink'
+              }`}
+            >
+              Todos a Fazer ({dashboardData.totalPendingCount})
+            </button>
+            <button
+              onClick={() => setActiveSectorTab('criativos')}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                activeSectorTab === 'criativos' ? 'bg-surface text-emerald-deep dark:text-emerald-400 shadow-xs' : 'text-mute hover:text-ink'
+              }`}
+            >
+              Criativos ({dashboardData.criativosPendingCount})
+            </button>
+            <button
+              onClick={() => setActiveSectorTab('longos')}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                activeSectorTab === 'longos' ? 'bg-surface text-blue-500 shadow-xs' : 'text-mute hover:text-ink'
+              }`}
+            >
+              Longos ({dashboardData.vlPendingCount})
+            </button>
+            <button
+              onClick={() => setActiveSectorTab('curtos')}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                activeSectorTab === 'curtos' ? 'bg-surface text-purple-500 shadow-xs' : 'text-mute hover:text-ink'
+              }`}
+            >
+              Reels/Curtos ({dashboardData.vcPendingCount})
+            </button>
+            <button
+              onClick={() => setActiveSectorTab('cortes')}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                activeSectorTab === 'cortes' ? 'bg-surface text-amber-500 shadow-xs' : 'text-mute hover:text-ink'
+              }`}
+            >
+              Carrossel ({dashboardData.coPendingCount})
+            </button>
+          </div>
+
+          {/* Search & Editor Filter */}
+          <div className="flex items-center gap-3">
+            <div className="relative flex-1 sm:w-48">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-faint" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Buscar conteúdo..."
+                className="w-full rounded-xl border border-hairline bg-surface pl-9 pr-3 py-1.5 text-xs text-ink placeholder:text-faint focus:border-emerald focus:outline-none"
+              />
+            </div>
+
+            <select
+              value={editorFilter}
+              onChange={(e) => setEditorFilter(e.target.value)}
+              className="rounded-xl border border-hairline bg-surface px-3 py-1.5 text-xs text-ink font-medium focus:border-emerald focus:outline-none"
+            >
+              <option value="Todos">Todos Editores</option>
+              <option value="Sem Editor">Sem Editor</option>
+              {dashboardData.editorsWorkload.map(ed => (
+                <option key={ed.name} value={ed.name}>{ed.name} ({ed.count})</option>
               ))}
-            </div>
-          )}
-        </Card>
+            </select>
+          </div>
 
-        {/* Stalled Items */}
-        <Card>
-          <h3 className="text-base font-semibold text-ink mb-4 flex items-center gap-2">
-            <Clock size={18} className="text-danger" /> Travados ({stats.stalledItems.length})
-          </h3>
-          {stats.stalledItems.length === 0 ? (
-            <p className="text-sm text-mute flex items-center gap-2"><CheckCircle size={14} className="text-emerald" /> Tudo em dia!</p>
-          ) : (
-            <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
-              {stats.stalledItems.map(item => (
-                <div key={item.id} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-red-50/50 dark:bg-red-950/10 border border-red-100 dark:border-red-900/30">
-                  <Badge tone="danger" className="shrink-0 text-[9px]">{item.days}d</Badge>
-                  <span className="text-sm text-ink truncate flex-1">{item.title}</span>
-                  <span className="text-[10px] text-mute shrink-0">{item.type}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
+        </div>
+
+        {/* Content Table */}
+        <div className="premium-card overflow-hidden">
+          <div className="p-4 border-b border-hairline flex items-center justify-between">
+            <h2 className="text-xs font-bold text-ink uppercase tracking-wider flex items-center gap-2">
+              <Layers size={16} className="text-emerald" /> Fila de Conteúdos a Fazer ({filteredList.length})
+            </h2>
+            <span className="text-[11px] text-mute">Ordenado por prioridade de produção</span>
+          </div>
+
+          <div className="overflow-x-auto custom-scrollbar">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-elevated/70 border-b border-hairline text-faint font-semibold uppercase text-[10px] tracking-wider">
+                <tr>
+                  <th className="px-4 py-3 min-w-[140px]">Setor</th>
+                  <th className="px-4 py-3 min-w-[280px]">Título / Nome do Conteúdo</th>
+                  <th className="px-4 py-3 min-w-[120px]">Status</th>
+                  <th className="px-4 py-3 min-w-[120px]">Editor</th>
+                  <th className="px-4 py-3 min-w-[130px]">Gravação / Origem</th>
+                  <th className="px-4 py-3 text-right min-w-[120px]">Ação</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-hairline text-ink">
+                {filteredList.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-12 text-center text-mute">
+                      <CheckCircle2 size={24} className="mx-auto text-emerald mb-2" />
+                      Nenhum conteúdo a fazer encontrado nesta categoria!
+                    </td>
+                  </tr>
+                ) : (
+                  filteredList.map(item => {
+                    const IconComponent = item.icon
+                    return (
+                      <tr key={item.id} className="table-row-hover">
+                        
+                        {/* Sector Badge */}
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-surface border border-hairline text-ink">
+                            <IconComponent size={13} className="text-emerald shrink-0" />
+                            {item.sector}
+                          </span>
+                        </td>
+
+                        {/* Title */}
+                        <td className="px-4 py-3 font-medium text-ink">
+                          {item.title}
+                          {item.tag && (
+                            <span className="ml-2 px-1.5 py-0.5 rounded bg-emerald/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">
+                              {item.tag}
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Status */}
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${
+                            item.status === 'Em Edição'
+                              ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                              : item.status === 'Não Gravado'
+                              ? 'bg-red-500/10 text-red-500 border border-red-500/20'
+                              : 'bg-surface text-mute border border-hairline'
+                          }`}>
+                            {item.status}
+                          </span>
+                        </td>
+
+                        {/* Editor */}
+                        <td className="px-4 py-3 font-semibold text-mute whitespace-nowrap">
+                          {item.editor}
+                        </td>
+
+                        {/* Gravação / Origem */}
+                        <td className="px-4 py-3 font-mono text-[11px] text-mute whitespace-nowrap">
+                          {item.gravacao}
+                        </td>
+
+                        {/* Actions */}
+                        <td className="px-4 py-3 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-2">
+                            {item.linkDrive ? (
+                              <a
+                                href={item.linkDrive}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 text-[11px] font-medium transition-colors"
+                              >
+                                <Folder size={12} /> Drive <ExternalLink size={10} />
+                              </a>
+                            ) : null}
+                            <button
+                              onClick={() => onNavigate && onNavigate(item.origemTab)}
+                              className="p-1.5 text-mute hover:bg-ink/5 hover:text-ink rounded-lg transition-colors"
+                              title="Abrir no Setor"
+                            >
+                              <ChevronRight size={16} />
+                            </button>
+                          </div>
+                        </td>
+
+                      </tr>
+                    )
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
 
-      {/* Top Frases + Partners */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Top Frases */}
-        <Card>
-          <h3 className="text-base font-semibold text-ink mb-4 flex items-center gap-2">
-            <TrendingUp size={18} className="text-emerald" /> Top Frases
-          </h3>
-          <div className="space-y-3">
-            {stats.topFrases.map((frase, idx) => (
-              <div key={frase.id} className="flex items-start gap-3">
-                <span className={cn(
-                  'flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-xs font-bold',
-                  idx === 0 ? 'bg-emerald/10 text-emerald-deep' : 'bg-elevated text-mute',
-                )}>
-                  {idx + 1}
+      {/* Bottom Grid: Editors Workload & Upcoming Calendar */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        
+        {/* Editors Workload Card */}
+        <div className="premium-card p-5 lg:col-span-2 space-y-4">
+          <div className="flex items-center justify-between border-b border-hairline pb-3">
+            <h3 className="text-xs font-bold text-ink uppercase tracking-wider flex items-center gap-2">
+              <Users size={16} className="text-emerald" /> Carga de Trabalho por Editor (Pendente)
+            </h3>
+            <span className="text-[11px] text-mute">{dashboardData.editorsWorkload.length} responsáveis</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            {dashboardData.editorsWorkload.map(ed => (
+              <div key={ed.name} className="p-3 rounded-xl bg-elevated/50 border border-hairline flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-ink">{ed.name}</p>
+                  <p className="text-[11px] text-mute mt-0.5">conteúdos a fazer</p>
+                </div>
+                <span className="text-lg font-bold text-emerald-deep dark:text-emerald-400 bg-emerald/10 px-2.5 py-0.5 rounded-lg">
+                  {ed.count}
                 </span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-ink truncate">"{frase.frase}"</p>
-                  <div className="flex items-center gap-3 mt-1">
-                    <span className="text-[11px] text-mute flex items-center gap-1"><Eye size={10} /> {formatNumber(frase.visualizacoes)}</span>
-                    <span className="text-[11px] text-mute flex items-center gap-1"><Heart size={10} /> {formatNumber(frase.interacoes)}</span>
-                    <span className="text-[11px] text-mute flex items-center gap-1"><UserPlus size={10} /> {formatNumber(frase.novosSeguidores)}</span>
-                  </div>
-                </div>
               </div>
             ))}
           </div>
-          <div className="mt-4 pt-4 border-t border-hairline grid grid-cols-3 gap-2 text-center">
-            <div>
-              <p className="text-lg font-bold text-ink">{formatNumber(stats.totalViews)}</p>
-              <p className="text-[10px] text-mute uppercase tracking-wider">Views</p>
-            </div>
-            <div>
-              <p className="text-lg font-bold text-ink">{formatNumber(stats.totalInteractions)}</p>
-              <p className="text-[10px] text-mute uppercase tracking-wider">Interações</p>
-            </div>
-            <div>
-              <p className="text-lg font-bold text-ink">{formatNumber(stats.totalFollowers)}</p>
-              <p className="text-[10px] text-mute uppercase tracking-wider">Seguidores</p>
-            </div>
-          </div>
-        </Card>
+        </div>
 
-        {/* Partners */}
-        <Card>
-          <h3 className="text-base font-semibold text-ink mb-4 flex items-center gap-2">
-            <Activity size={18} className="text-emerald" /> Parceiros / Marcas
-          </h3>
-          {stats.partners.length === 0 ? (
-            <p className="text-sm text-mute">Nenhum parceiro registrado.</p>
-          ) : (
-            <div className="space-y-3">
-              {stats.partners.map(p => (
-                <div key={p.name} className="flex items-center gap-4">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-elevated text-sm font-bold text-mute">
-                    {p.name.slice(0, 2).toUpperCase()}
+        {/* Upcoming Calendar Card */}
+        <div className="premium-card p-5 space-y-4">
+          <div className="flex items-center justify-between border-b border-hairline pb-3">
+            <h3 className="text-xs font-bold text-ink uppercase tracking-wider flex items-center gap-2">
+              <Calendar size={16} className="text-emerald" /> Próximos Lançamentos
+            </h3>
+            <button
+              onClick={() => onNavigate && onNavigate('calendario')}
+              className="text-xs text-emerald font-semibold hover:underline"
+            >
+              Ver tudo
+            </button>
+          </div>
+
+          <div className="space-y-2.5">
+            {dashboardData.upcomingCalendar.length === 0 ? (
+              <p className="text-xs text-mute text-center py-4">Nenhum lançamento agendado para os próximos dias.</p>
+            ) : (
+              dashboardData.upcomingCalendar.map(calItem => (
+                <div key={calItem.id} className="p-2.5 rounded-xl bg-elevated/40 border border-hairline flex items-center justify-between">
+                  <div className="overflow-hidden pr-2">
+                    <p className="text-xs font-medium text-ink truncate">{calItem.titulo}</p>
+                    <p className="text-[10px] font-mono text-mute">{calItem.agenda}</p>
                   </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-ink">{p.name}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[11px] text-mute">{p.total} vídeos</span>
-                      <span className="text-[11px] text-emerald">{p.published} publicados</span>
-                    </div>
-                  </div>
-                  <div className="w-16 h-1.5 rounded-full bg-elevated overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-emerald transition-all"
-                      style={{ width: `${p.total > 0 ? (p.published / p.total) * 100 : 0}%` }}
-                    />
-                  </div>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-500 shrink-0">
+                    {calItem.canal || 'Geral'}
+                  </span>
                 </div>
-              ))}
-            </div>
-          )}
-        </Card>
-      </div>
-      {/* Social Media */}
-      <SocialSection />
-    </div>
-  )
-}
-
-function SocialSection() {
-  const [igData, setIgData] = useState(null)
-  const [ytData, setYtData] = useState(null)
-  const [loading, setLoading] = useState(false)
-
-  const fetchAll = useCallback(async () => {
-    setLoading(true)
-    const [igInsights, igMedia, ytStats] = await Promise.all([
-      api.instagramInsights().catch(() => ({ error: true })),
-      api.instagramMedia().catch(() => ({ error: true })),
-      api.youtubeChannelStats().catch(() => ({ error: true })),
-    ])
-    if (!igInsights.error) {
-      const map = {}
-      ;(igInsights.data || []).forEach(m => { map[m.name] = m.values?.[0]?.value ?? 0 })
-      setIgData({
-        followers: map.follower_count || 0,
-        impressions: map.impressions || 0,
-        reach: map.reach || 0,
-        recentPosts: (igMedia.data || []).slice(0, 3).map(p => ({
-          likes: p.like_count || 0, comments: p.comments_count || 0, date: p.timestamp, caption: p.caption,
-        })),
-      })
-    }
-    if (!ytStats.error) {
-      setYtData({
-        subscribers: ytStats.data.subscribers,
-        videos: ytStats.data.videoCount,
-        views: ytStats.data.viewCount,
-      })
-    }
-    setLoading(false)
-  }, [])
-
-  useEffect(() => { fetchAll() }, [fetchAll])
-
-  const hasData = igData || ytData
-
-  return (
-    <div className="mt-6">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-base font-semibold text-ink flex items-center gap-2">
-          <TrendingUp size={18} className="text-emerald" /> Redes Sociais
-        </h3>
-        <Button variant="ghost" size="xs" onClick={fetchAll} disabled={loading}
-          icon={loading ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}>
-          Atualizar
-        </Button>
-      </div>
-
-      {!hasData && !loading && (
-        <p className="text-sm text-mute">Nenhuma rede conectada. Vá em Analytics para configurar.</p>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Instagram */}
-        <Card className={!igData ? 'opacity-50' : ''}>
-          <div className="flex items-center gap-3 mb-4">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 text-white">
-              <Heart size={16} />
-            </div>
-            <h4 className="text-sm font-semibold text-ink">Instagram</h4>
-            {!igData && <Badge tone="neutral">Não conectado</Badge>}
+              ))
+            )}
           </div>
-          {igData && (
-            <>
-              <div className="grid grid-cols-3 gap-2 mb-4">
-                <SocialStat label="Seguidores" value={formatNumber(igData.followers)} />
-                <SocialStat label="Impressões" value={formatNumber(igData.impressions)} />
-                <SocialStat label="Alcance" value={formatNumber(igData.reach)} />
-              </div>
-              {igData.recentPosts.length > 0 && (
-                <div className="border-t border-hairline pt-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-mute mb-2">Últimos 3 posts</p>
-                  <div className="space-y-2">
-                    {igData.recentPosts.map((p, i) => (
-                      <div key={i} className="flex items-center gap-2 text-xs">
-                        <span className="flex items-center gap-1 text-rose-500"><Heart size={10} /> {p.likes}</span>
-                        <span className="flex items-center gap-1 text-blue-500"><MessageCircle size={10} /> {p.comments}</span>
-                        <span className="text-mute ml-auto">{new Date(p.date).toLocaleDateString()}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </Card>
+        </div>
 
-        {/* YouTube */}
-        <Card className={!ytData ? 'opacity-50' : ''}>
-          <div className="flex items-center gap-3 mb-4">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-500 text-white">
-              <Video size={16} />
-            </div>
-            <h4 className="text-sm font-semibold text-ink">YouTube</h4>
-            {!ytData && <Badge tone="neutral">Não conectado</Badge>}
-          </div>
-          {ytData && (
-            <div className="grid grid-cols-3 gap-2">
-              <SocialStat label="Inscritos" value={formatNumber(ytData.subscribers)} />
-              <SocialStat label="Vídeos" value={formatNumber(ytData.videos)} />
-              <SocialStat label="Views" value={formatNumber(ytData.views)} />
-            </div>
-          )}
-        </Card>
       </div>
-    </div>
-  )
-}
 
-function SocialStat({ label, value }) {
-  return (
-    <div className="text-center p-2 rounded-lg bg-elevated/50 border border-hairline">
-      <p className="text-sm font-bold text-ink">{value}</p>
-      <p className="text-[9px] text-mute uppercase tracking-wider">{label}</p>
-    </div>
-  )
-}
-
-function StatCard({ icon: Icon, label, value, color }) {
-  const colors = {
-    blue: 'bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400',
-    purple: 'bg-purple-50 dark:bg-purple-950/30 text-purple-600 dark:text-purple-400',
-    amber: 'bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400',
-    emerald: 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400',
-  }
-  return (
-    <div className="rounded-xl border border-hairline bg-surface p-4 flex items-center gap-4">
-      <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg', colors[color])}>
-        <Icon size={20} />
-      </div>
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-mute">{label}</p>
-        <p className="text-heading-md text-ink">{value}</p>
-      </div>
-    </div>
-  )
-}
-
-function PipelineStat({ label, value, color }) {
-  return (
-    <div className="text-center">
-      <div className={cn('inline-flex h-2 w-2 rounded-full mb-1', color)} />
-      <p className="text-2xl font-bold text-ink">{value}</p>
-      <p className="text-[11px] text-mute">{label}</p>
     </div>
   )
 }
