@@ -151,7 +151,7 @@ export async function replaceCollection(name, items) {
   const table = TABLES[name]
   if (!table || !supabase) return false
 
-  const { error: delError } = await supabase.from(table).delete().neq('id', '')
+  const { error: delError } = await supabase.from(table).delete().gt('created_at', '1970-01-01T00:00:00Z')
   if (delError) {
     console.error(`Error clearing ${name}:`, delError)
     return false

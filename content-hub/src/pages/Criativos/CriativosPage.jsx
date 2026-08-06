@@ -115,42 +115,72 @@ export function CriativosPage() {
   const percentFinalizado = totalCount > 0 ? Math.round((finalizadosCount / totalCount) * 100) : 0
 
   // Operations
-  const handleImport = (newItems, mode) => {
+  const handleImport = async (newItems, mode) => {
     dirtyRef.current = true
-    if (mode === 'replace') {
-      setCriativos(newItems)
-      replaceCollection('criativos', newItems).finally(() => { dirtyRef.current = false })
-    } else {
-      setCriativos(prev => [...newItems, ...prev])
-      Promise.all(newItems.map(item => addToSupabase('criativos', item))).finally(() => { dirtyRef.current = false })
+    try {
+      if (mode === 'replace') {
+        setCriativos(newItems)
+        await replaceCollection('criativos', newItems)
+      } else {
+        setCriativos(prev => [...newItems, ...prev])
+        await Promise.all(newItems.map(item => addToSupabase('criativos', item)))
+      }
+    } catch (err) {
+      console.error('Erro ao importar criativos:', err)
+    } finally {
+      dirtyRef.current = false
     }
   }
 
-  const handleInlineStatusChange = (id, newStatus) => {
+  const handleInlineStatusChange = async (id, newStatus) => {
     dirtyRef.current = true
     setCriativos(prev => prev.map(c => c.id === id ? { ...c, status: newStatus } : c))
-    updateInSupabase('criativos', id, { status: newStatus }).finally(() => { dirtyRef.current = false })
+    try {
+      await updateInSupabase('criativos', id, { status: newStatus })
+    } catch (err) {
+      console.error('Erro ao atualizar status:', err)
+    } finally {
+      dirtyRef.current = false
+    }
   }
 
-  const handleInlineEditorChange = (id, newEditor) => {
+  const handleInlineEditorChange = async (id, newEditor) => {
     dirtyRef.current = true
     setCriativos(prev => prev.map(c => c.id === id ? { ...c, editor: newEditor } : c))
-    updateInSupabase('criativos', id, { editor: newEditor }).finally(() => { dirtyRef.current = false })
+    try {
+      await updateInSupabase('criativos', id, { editor: newEditor })
+    } catch (err) {
+      console.error('Erro ao atualizar editor:', err)
+    } finally {
+      dirtyRef.current = false
+    }
   }
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (window.confirm('Deseja realmente remover este criativo?')) {
       dirtyRef.current = true
       setCriativos(prev => prev.filter(c => c.id !== id))
-      deleteFromSupabase('criativos', id).finally(() => { dirtyRef.current = false })
+      try {
+        await deleteFromSupabase('criativos', id)
+      } catch (err) {
+        console.error('Erro ao remover criativo:', err)
+      } finally {
+        dirtyRef.current = false
+      }
     }
   }
 
-  const handleClearAll = () => {
+  const handleClearAll = async () => {
     if (window.confirm('Tem certeza que deseja zerar e apagar todos os criativos da lista?')) {
       dirtyRef.current = true
       setCriativos([])
-      replaceCollection('criativos', []).finally(() => { dirtyRef.current = false })
+      try {
+        await replaceCollection('criativos', [])
+      } catch (err) {
+        console.error('Erro ao zerar lista:', err)
+      } finally {
+        dirtyRef.current = false
+      }
     }
   }
 
@@ -182,26 +212,31 @@ export function CriativosPage() {
     setAddModalOpen(true)
   }
 
-  const handleSaveForm = (e) => {
+  const handleSaveForm = async (e) => {
     e.preventDefault()
     if (!formData.nomeArquivo.trim()) return
 
     dirtyRef.current = true
-
-    if (editingItem) {
-      setCriativos(prev => prev.map(c => c.id === editingItem.id ? { ...c, ...formData } : c))
-      updateInSupabase('criativos', editingItem.id, formData).finally(() => { dirtyRef.current = false })
-    } else {
-      const newItem = {
-        id: `criativo-${Date.now()}`,
-        ...formData,
-        createdAt: new Date().toISOString(),
-      }
-      setCriativos(prev => [newItem, ...prev])
-      addToSupabase('criativos', newItem).finally(() => { dirtyRef.current = false })
-    }
-
     setAddModalOpen(false)
+
+    try {
+      if (editingItem) {
+        setCriativos(prev => prev.map(c => c.id === editingItem.id ? { ...c, ...formData } : c))
+        await updateInSupabase('criativos', editingItem.id, formData)
+      } else {
+        const newItem = {
+          id: `criativo-${Date.now()}`,
+          ...formData,
+          createdAt: new Date().toISOString(),
+        }
+        setCriativos(prev => [newItem, ...prev])
+        await addToSupabase('criativos', newItem)
+      }
+    } catch (err) {
+      console.error('Erro ao salvar formulário:', err)
+    } finally {
+      dirtyRef.current = false
+    }
   }
 
   const handleCopyLink = (url, idKey) => {
