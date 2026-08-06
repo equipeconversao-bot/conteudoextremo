@@ -86,8 +86,10 @@ export async function addItem(name, item) {
 
   const dbItem = {
     ...itemToDb(item, name),
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    created_at: item.createdAt || new Date().toISOString(),
+  }
+  if (name !== 'criativos' && name !== 'usuarios') {
+    dbItem.updated_at = new Date().toISOString()
   }
 
   const { data, error } = await supabase
@@ -108,9 +110,9 @@ export async function updateItem(name, id, updates) {
   const table = TABLES[name]
   if (!table || !supabase) return null
 
-  const dbUpdates = {
-    ...itemToDb(updates, name),
-    updated_at: new Date().toISOString(),
+  const dbUpdates = itemToDb(updates, name)
+  if (name !== 'criativos' && name !== 'usuarios') {
+    dbUpdates.updated_at = new Date().toISOString()
   }
 
   const { data, error } = await supabase
@@ -157,11 +159,16 @@ export async function replaceCollection(name, items) {
 
   if (!items || items.length === 0) return true
 
-  const rows = items.map(item => ({
-    ...itemToDb(item, name),
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  }))
+  const rows = items.map(item => {
+    const row = {
+      ...itemToDb(item, name),
+      created_at: item.createdAt || new Date().toISOString(),
+    }
+    if (name !== 'criativos' && name !== 'usuarios') {
+      row.updated_at = new Date().toISOString()
+    }
+    return row
+  })
 
   const { error: insError } = await supabase.from(table).insert(rows)
   if (insError) {

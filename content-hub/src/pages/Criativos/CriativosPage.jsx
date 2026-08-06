@@ -46,7 +46,7 @@ export function CriativosPage() {
       setCriativos(prev => {
         const cloudJson = JSON.stringify(cloud)
         const localJson = JSON.stringify(prev)
-        if (cloudJson !== localJson && cloud && cloud.length > 0) return cloud
+        if (cloudJson !== localJson && Array.isArray(cloud)) return cloud
         return prev
       })
     }, 5000)
